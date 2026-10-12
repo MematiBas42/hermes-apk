@@ -23,6 +23,16 @@ data class HealthResponse(
     @SerializedName("version") val version: String? = null,
 )
 
+/**
+ * POST /v1/uploads/token — a short-lived, upload-only credential for the companion file
+ * service. Unlike the master API key, this token is safe to hand to the agent inside run
+ * instructions: it can only call `POST /upload` and expires on its own.
+ */
+data class UploadTokenDto(
+    @SerializedName("token") val token: String? = null,
+    @SerializedName("expires_in") val expiresIn: Long? = null,
+)
+
 /** GET /v1/capabilities (unknown fields are ignored by Gson) */
 data class Capabilities(
     @SerializedName("object") val objectType: String? = null,
@@ -183,7 +193,20 @@ data class SessionMessagesResponse(
     @SerializedName("object") val objectType: String? = null,
     @SerializedName("session_id") val sessionId: String? = null,
     @SerializedName("data") val data: List<ServerMessage> = emptyList(),
-    @SerializedName("pagination") val pagination: JsonElement? = null,
+    @SerializedName("pagination") val pagination: MessagesPagination? = null,
+)
+
+/**
+ * Server pagination envelope. `order` echoes the window actually served — the server defaults to
+ * the *newest* window, but an explicit `limit` without `order` silently flips to `"oldest"`
+ * (verified live), which is what used to hide the newest turns of long conversations.
+ */
+data class MessagesPagination(
+    @SerializedName("limit") val limit: Int? = null,
+    @SerializedName("offset") val offset: Int? = null,
+    @SerializedName("order") val order: String? = null,
+    @SerializedName("returned") val returned: Int? = null,
+    @SerializedName("has_more") val hasMore: Boolean? = null,
 )
 
 data class ServerMessage(

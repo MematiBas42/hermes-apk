@@ -105,6 +105,41 @@
   - **验证（live）**：`/status` 现在显示 `Session ID: hm-reg-531679`、标题与 17,335 lifetime tokens；`/usage` 返回 `Session Info | Messages: 2`；`/context` 返回该会话的 `~47 tokens across 2 messages`。（无 live agent 时 `/usage` 仍如实降级为 transcript 估算，这是 Hermes 既定行为。）
   - 新补丁 md5 `b8404632ebb20c3e51934d9688caa042`。**重启注意**：网关有自我重启守卫（`tools/terminal_tool_guards.py`），从网关进程内部跑 `systemctl restart` / `systemd-run ... systemctl restart` 会被拒；应改用 `systemctl reload hermes-gateway.service`（网关把 SIGUSR1 视为优雅重启，守卫正则不含 `reload`）。
 
+### 本批次（服务端停用微信投递 / 503 排水重试）
+- **背景**：微信网关已弃用，但两个定时任务（fd610b87c038 / a6b80463c505）的 deliver 是 "weixin"——**不是全局默认值**（Hermes 翻遍 config/源码确认 cron 无投递默认键；是创建时模型显式写的，且 api_server 会话 origin=null，裸平台名解析到 WEIXIN_HOME_CHANNEL）。新任务经 api_server 创建、deliver 缺省时一律 local，**但显式写 deliver="origin"/"all" 会回落到「第一个有 chat_id 的 home channel」**——App 侧新建默认 local，编辑器不要填 origin/all。
+- **Hermes 已执行（三件一起）**：
+  1. `PATCH /api/jobs/{id}`：两个任务 deliver → local（已复核生效）。
+  2. `/root/.hermes/.env` 第 492 行 `WEIXIN_HOME_CHANNEL=` 置**空赋值**（不能删行：删行无法覆盖常驻进程继承的旧值，空赋值才被 `load_dotenv(override=True)` 覆盖；原值留注释）。这样 origin/all/weixin 的目标解析全部落空。
+  3. `config.yaml` 追加 `platforms.weixin.enabled=false`（注意：**只**设这个没用——投递目标解析走静态平台名单 + home channel，不看 enabled）。
+  备份：`archive/config.yaml.bak-20261012-111708`、`.env.bak2-20261012-111859`；回滚 = `hermes config set platforms.weixin.enabled true` + 恢复 .env 那行。Hermes 另沉淀了技能 `hermes-cron-delivery-targets`（脚本 `scripts/_patch_jobs.sh`、`scripts/_verify_live.sh`）。
+- **验证**：`/api/jobs` 两任务 deliver=local；进程内 `_resolve_delivery_targets` 对 weixin/all/origin/local 全部返回空；`/api/sessions`、`/api/jobs` 不受影响；两任务 repeat 已跑满（state=completed），不会再触发，手动 re-run 也只走 local。
+- **App 侧配合**：`ChatRepository` 提交增加 **503 gateway_draining 重试**——该部署的 `systemctl reload`（SIGUSR1）实为「排水 + 进程重启」，排水期间 `/v1/runs` 返回 503（/api/* 正常 200），几秒内恢复；同一 Idempotency-Key 重试至多 2 次（间隔 3s），不会产生重复 run。
+
+### 本批次（投递失败语义 / cron 会话隐藏 / 编辑防串改）
+- **现象 1：任务成功却"报错"，且点通知看不到结果**。实测两个任务 `deliver="weixin"`（历史上经微信网关创建，origin 已解析成具体平台目标），执行成功（`execution.status=completed`）但投递到已停用的微信网关失败 → `last_status=delivery_failed`，此前 UI 把它当失败展示、通知正文是巨长投递错误。
+  - **语义修正**：执行与投递分离——`delivery_failed` 表示**任务本身成功**、结果会话完好，只有推送没送到。通知判定 success 只看 `execution.status==completed && last_status ∉ {error, blocked_config}`；任务卡片状态 chip 对 `delivery_failed` 显示中性"推送失败"（不标红），详情行显示"执行成功，结果推送未送达（weixin）"。
+  - **一键修复**：卡片菜单新增「投递改为本机（local）」（`PATCH /api/jobs/{id} {deliver:"local"}`），仅当 deliver ≠ local 时显示；App 内新建任务默认就是 local。
+  - **no_agent 标记**（Room v4，迁移 3→4）：脚本任务不产生会话，「查看最新结果」明确提示"脚本任务不产生对话记录"，chip 显示"脚本"。
+- **现象 2：点「同步」后对话类定时任务的会话混进普通会话列表**。
+  - **修复**：`SessionRepository.syncAll()` 跳过 `source=="cron"`（或 id 前缀 `cron_`）的会话，并清理此前已同步进本地的行（含 messages/runs）；`SessionDao.observeAll()` 加 `id NOT LIKE 'cron\_%'` 兜底（`ensure()` 建的行也被隐藏）。cron 会话只从定时任务页进入：`observe(id)` 不受影响，通知/「查看最新结果」深链照常打开聊天页并自动拉历史。
+- **编辑防串改**：任务编辑改为**只 PATCH 变更字段**——schedule 输入框的初值是展示串（"every 1m"/"once at …"），整包回传会让服务端重新解析而可能改坏 interval/once 任务的计划；现在 diff 后仅发送用户实际修改的字段。
+
+### 本批次（同步隐藏最新对话修复 / 定时任务支持与推送）
+
+- **现象**：偶发「同步消息后最新对话消失」。参考会话 `查找pikpak转存夸克盘文档`（536 行 transcript，含 247 次工具调用）。
+  - **根因（实测 + 与 Hermes 共同读源码确认）**：`GET /api/sessions/{id}/messages` 的服务端默认值逻辑（`api_server.py:3314`）：`default_page = requested_limit is None`；`latest_page = order=="latest" or (order is None and default_page)`。**只要显式传 limit 而不传 order，就返回「最旧的窗口」**（`pagination.order="oldest"`）。App 原来单发 `?limit=500` → 拿到第 1–500 行（id 6014–6773）；而「服务端权威替换」把本地整体覆盖 → 最新 36 行（6774–6848，含最终答案）被删。只有超过 500 行的长会话才触发，故「偶发」。Hermes 把每个工具调用/结果都持久化成一行，长任务极易超 500。
+  - **修复**：新增 `SessionHistoryPager`：`order=latest`（offset 0 = 最新窗口）+ 递增 offset 整页回溯，`returned < effective_limit` 即停（effective limit 取 `pagination.limit`，防服务端把 limit 钳到更小），页序反转重组时间序、按行 id 去重（并发追加导致窗口平移时防重复）；上限 40 页（2 万行）。`ChatRepository.fetchHistory()` 与 `RunManager.syncFromServer()` 均改走分页器。跟随服务端返回的 `session_id`（压缩链 tip）翻页。实测：修复后同一会话两页取回全部 536 行，末行 id=6848（最终答案）。补 5 个单测（整页回溯/短会话/空会话/窗口平移去重/服务端钳制 limit）。
+  - 附带确认：keyset `after_id` 在 `hermes_state_messages.py` 存在但 HTTP 端点未暴露（未知参数被忽略）；`?source=cron` 会话过滤可用（`api_server.py:3098`）。
+- **定时任务（cron jobs）支持**：与 Hermes 实时讨论定稿的架构（Hermes 逐行读了 `api_server.py` / `cron/jobs.py` / `scheduler_delivery.py` 并在运行中的网关上验证，讨论记录见会话列表「查找pikpak…」同期的探讨会话）：
+  - **管理面**：`/api/jobs` 全功能客户端——列表必须 `?include_disabled=true`（repeat 耗尽的 job 服务端存为 disabled，默认列表会藏）；PATCH 白名单无 `paused`，暂停/恢复走 `POST /{id}/pause|resume`（正确写 paused_at/paused_reason）；`POST /{id}/run` 只标记 due（≤60s 内被调度器拾取，不返回 run id）。App 新增「定时任务」页（主页顶栏时钟图标）：任务卡片（名称/计划/状态/下次/上次执行结果）、新建/编辑（自然语言或 cron 表达式 + 预设）、立即运行、暂停/恢复、删除、查看最新结果。
+  - **结果面**：cron 每次执行生成 `cron_{job_id}_{YYYYmmdd_HHMMSS}` 会话（source=cron、扁平 root），天然进入现有会话列表同步；通知/「查看结果」深链直达该会话，聊天页首次打开空会话时自动拉一次服务端历史（`ChatViewModel` init，空列表才拉，失败静默）。关联采用与服务端 `list_cron_job_runs` 相同的「id 前缀 + source」约定；`no_agent` 纯脚本任务无会话，通知回落到状态文本并打开任务页。
+  - **推送面（对账 + 真推送分层）**：
+    1. 后台兜底：15 分钟 WorkManager 对账顺带拉一次 `GET /api/jobs?include_disabled=true`（一个轻请求），以 `latest_execution.id`（executions.db 每次 fire 一个 uuid）为去重键——绝不用 `last_run_at` 字符串比较（重跑/编辑会误判）；终态（completed/failed/unknown）变化 → 本地通知（新通知渠道 `hermes_jobs`，前台且正在看任务页/结果会话时抑制）。
+    2. 前台即时：Hermes 自带 **ntfy 平台插件**（`plugins/platforms/ntfy`，注册 `cron_deliver_env_var=NTFY_HOME_CHANNEL` + standalone sender，Hermes 已在宿主机验证）——job 设 `deliver="ntfy:主题"` 即推送到 ntfy 服务器；App 新增 `NtfyPushController`：前台保持订阅同一主题的 `/sse` 流（okhttp-sse，退避重连，Bearer 可选），收到消息即触发 `JobsRepository.sync`（推送只是提示、永远以对账为准，ntfy 重放/伪造不可能造成重复通知），并在 6s 后补一次同步兜底执行账本翻转延迟。设置页新增「定时任务推送」：ntfy 地址/主题/令牌；后台由 WorkManager 兜底，Doze 下长连接本就不可靠。
+    3. 未采用：往 cron 核心加 webhook 字段（Hermes 指出正确扩展点是平台插件形状——如需 FCM 再照 ntfy 插件写一个）；服务端加 `GET /api/jobs/events` SSE 端点（可选项，前台才有效，App 被杀仍需兜底，列为后续）。
+  - **存储**：Room v3 新增 `jobs` 表（本地镜像 + 通知去重键 `lastExecutionId` + 深链 `lastSessionId`），迁移 2→3。补 8 个单测（终态判定/会话前缀匹配/实体映射保留本地记忆/微秒级 ISO 时间戳解析）。
+  - **服务端后续（可选，需主人点头）**：VPS 上装自建 ntfy（docker/apt，Hermes 的插件零代码即可用）或直接用公共 ntfy.sh；给 ntfy 插件配 `platforms.ntfy.extra(server/topic/token)`；之后新建任务时把 deliver 填 `ntfy:主题`。App 侧已就绪，不配置也能用（纯 15 分钟对账模式）。
+
 ### 本批次（更新不再闪屏 / 新内容不再跳到消息开头）
 - **现象 1（闪屏）**：run 完成后的静默同步（以及手动同步）会让聊天列表瞬间闪白/闪空。
   - **根因**：`ChatRepository.fetchHistory()` 与 `RunManager.syncFromServer()` 都是「先 `deleteForSession` 再逐条 `insert`」，且不在同一事务里。Room 的 `Flow` 是失效驱动：删除与插入之间会各自触发一次查询，观察者先收到**空列表**（触发 `EmptyChatHint` 闪现），再收到逐步拼出的列表；同时新插入的行拿到新的自增 id，`LazyColumn` 的 `key = item.id` 全变，整表被销毁重建，进一步加剧闪烁与滚动跳动。

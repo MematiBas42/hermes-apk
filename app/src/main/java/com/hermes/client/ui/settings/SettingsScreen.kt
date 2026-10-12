@@ -75,6 +75,9 @@ fun SettingsRoute(
         baseUrl = settings.baseUrl,
         apiKey = settings.apiKey,
         filesBaseUrl = settings.filesBaseUrl.ifBlank { settings.effectiveFilesBaseUrl },
+        jobsPushUrl = settings.jobsPushUrl,
+        jobsPushTopic = settings.jobsPushTopic,
+        jobsPushToken = settings.jobsPushToken,
         themeMode = settings.themeMode,
         dynamicColor = settings.dynamicColor,
         systemInstructions = settings.systemInstructions,
@@ -93,6 +96,7 @@ fun SettingsRoute(
         onPickAvatar = { avatarPicker.launch("image/*") },
         onClearAvatar = viewModel::clearAssistantAvatar,
         onSaveFilesBaseUrl = viewModel::setFilesBaseUrl,
+        onSaveJobsPush = viewModel::saveJobsPush,
         onClearTest = viewModel::clearTest,
     )
 }
@@ -103,6 +107,9 @@ fun SettingsScreen(
     baseUrl: String,
     apiKey: String,
     filesBaseUrl: String,
+    jobsPushUrl: String,
+    jobsPushTopic: String,
+    jobsPushToken: String,
     themeMode: ThemeMode,
     dynamicColor: Boolean,
     systemInstructions: String,
@@ -121,11 +128,15 @@ fun SettingsScreen(
     onPickAvatar: () -> Unit,
     onClearAvatar: () -> Unit,
     onSaveFilesBaseUrl: (String) -> Unit,
+    onSaveJobsPush: (String, String, String) -> Unit,
     onClearTest: () -> Unit,
 ) {
     var baseUrlField by remember(baseUrl) { mutableStateOf(baseUrl) }
     var apiKeyField by remember(apiKey) { mutableStateOf(apiKey) }
     var filesUrlField by remember(filesBaseUrl) { mutableStateOf(filesBaseUrl) }
+    var jobsPushUrlField by remember(jobsPushUrl) { mutableStateOf(jobsPushUrl) }
+    var jobsPushTopicField by remember(jobsPushTopic) { mutableStateOf(jobsPushTopic) }
+    var jobsPushTokenField by remember(jobsPushToken) { mutableStateOf(jobsPushToken) }
     var instructionsField by remember(systemInstructions) { mutableStateOf(systemInstructions) }
     var assistantNameField by remember(assistantName) { mutableStateOf(assistantName) }
     var keyVisible by remember { mutableStateOf(false) }
@@ -248,6 +259,50 @@ fun SettingsScreen(
                 onClick = { onSaveFilesBaseUrl(filesUrlField) },
                 enabled = filesUrlField != filesBaseUrl,
             ) { Text("保存文件服务地址") }
+
+            Spacer(Modifier.height(6.dp))
+            SectionTitle("定时任务推送（可选）")
+            OutlinedTextField(
+                value = jobsPushUrlField,
+                onValueChange = { jobsPushUrlField = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("ntfy 服务器地址") },
+                placeholder = { Text("https://ntfy.example.com（留停用）") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Uri,
+                    imeAction = ImeAction.Next,
+                ),
+            )
+            OutlinedTextField(
+                value = jobsPushTopicField,
+                onValueChange = { jobsPushTopicField = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("订阅主题 (topic)") },
+                placeholder = { Text("hermes-jobs-xxx") },
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = jobsPushTokenField,
+                onValueChange = { jobsPushTokenField = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("访问令牌（可选）") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+            )
+            Text(
+                text = "Hermes 自带 ntfy 平台插件：任务的「结果投递」填 ntfy:主题 即实时推送到这里" +
+                    "（应用打开时秒级收到，后台仍由 15 分钟对账兜底）。主题名请用随机串，等同访问凭据。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(
+                onClick = {
+                    onSaveJobsPush(jobsPushUrlField, jobsPushTopicField, jobsPushTokenField)
+                },
+                enabled = jobsPushUrlField != jobsPushUrl || jobsPushTopicField != jobsPushTopic ||
+                    jobsPushTokenField != jobsPushToken,
+            ) { Text("保存推送设置") }
 
             Spacer(Modifier.height(6.dp))
             SectionTitle("外观")

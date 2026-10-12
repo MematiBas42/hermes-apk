@@ -9,7 +9,12 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SessionDao {
-    @Query("SELECT * FROM sessions ORDER BY updatedAt DESC")
+    /**
+     * Conversation list. Cron-run transcripts are excluded at the query level too (defense in
+     * depth behind [com.hermes.client.data.repository.SessionRepository.syncAll]'s filter): they
+     * are only reachable from the 定时任务 screen.
+     */
+    @Query("SELECT * FROM sessions WHERE id NOT LIKE 'cron\\_%' ESCAPE '\\' ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<SessionEntity>>
 
     @Query("SELECT * FROM sessions WHERE id = :id LIMIT 1")
@@ -136,4 +141,37 @@ interface RunDao {
 
     @Query("DELETE FROM runs WHERE sessionId = :sessionId")
     suspend fun deleteForSession(sessionId: String)
+}
+
+@Dao
+interface JobDao {
+    @Query("SELECT * FROM jobs ORDER BY enabled DESC, updatedAt DESC")
+    fun observeAll(): Flow<List<JobEntity>>
+
+    @Query("SELECT * FROM jobs WHERE id = :id LIMIT 1")
+    suspend fun get(id: String): JobEntity?
+
+    @Query("SELECT id FROM jobs")
+    suspend fun allIds(): List<String>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(job: JobEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(jobs: List<JobEntity>)
+
+    @Query("DELETE FROM jobs WHERE id = :id")
+    suspend fun delete(id: String)
+
+    /** Keep local-only fields (notification dedupe, deep-link session) when refreshing a row. */
+    @Query(
+        "UPDATE jobs SET lastExecutionId = :executionId, lastExecutionStatus = :status, " +
+            "lastSessionId = :sessionId WHERE id = :id",
+    )
+    suspend fun updateExecution(
+        id: String,
+        executionId: String?,
+        status: String?,
+        sessionId: String?,
+    )
 }

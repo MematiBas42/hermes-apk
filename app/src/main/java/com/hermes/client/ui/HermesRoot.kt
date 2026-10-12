@@ -17,6 +17,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.hermes.client.ui.chat.ChatRoute
+import com.hermes.client.ui.jobs.JobsRoute
 import com.hermes.client.ui.sessions.SessionListRoute
 import com.hermes.client.ui.settings.SettingsRoute
 import com.hermes.client.ui.theme.HermesTheme
@@ -25,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 object Routes {
     const val SESSIONS = "sessions"
     const val SETTINGS = "settings"
+    const val JOBS = "jobs"
     const val CHAT = "chat/{sessionId}"
     fun chat(sessionId: String) = "chat/$sessionId"
 }
@@ -32,7 +34,9 @@ object Routes {
 @Composable
 fun HermesRoot(
     pendingSessionId: StateFlow<String?>,
+    pendingOpenJobs: StateFlow<Boolean>,
     onSessionConsumed: () -> Unit,
+    onJobsConsumed: () -> Unit,
 ) {
     val mainViewModel: MainViewModel = hiltViewModel()
     val settings by mainViewModel.settings.collectAsStateWithLifecycle()
@@ -40,11 +44,19 @@ fun HermesRoot(
     HermesTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor) {
         val navController = rememberNavController()
         val deepLink by pendingSessionId.collectAsStateWithLifecycle()
+        val openJobs by pendingOpenJobs.collectAsStateWithLifecycle()
 
         LaunchedEffect(deepLink) {
             deepLink?.let { sessionId ->
                 navController.navigate(Routes.chat(sessionId)) { launchSingleTop = true }
                 onSessionConsumed()
+            }
+        }
+
+        LaunchedEffect(openJobs) {
+            if (openJobs) {
+                navController.navigate(Routes.JOBS) { launchSingleTop = true }
+                onJobsConsumed()
             }
         }
 
@@ -68,10 +80,17 @@ fun HermesRoot(
                 SessionListRoute(
                     onOpenSession = { navController.navigate(Routes.chat(it)) },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                    onOpenJobs = { navController.navigate(Routes.JOBS) },
                 )
             }
             composable(Routes.SETTINGS) {
                 SettingsRoute(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.JOBS) {
+                JobsRoute(
+                    onBack = { navController.popBackStack() },
+                    onOpenSession = { navController.navigate(Routes.chat(it)) },
+                )
             }
             composable(
                 route = Routes.CHAT,

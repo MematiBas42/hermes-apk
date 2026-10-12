@@ -98,11 +98,52 @@ sdk.dir=/path/to/Android/Sdk
 | 端点 | 用途 |
 |---|---|
 | `GET /health`、`GET /v1/models`、`GET /v1/capabilities` | 连接与能力探测 |
+| `POST /v1/uploads/token` | 获取短时效、仅限上传的 scoped token（文件回传） |
 | `POST /v1/runs` | 异步发起任务（带 `Idempotency-Key`） |
 | `GET /v1/runs/{id}` | 轮询状态（断线恢复核心） |
 | `GET /v1/runs/{id}/events` | SSE 事件流 |
 | `POST /v1/runs/{id}/stop` / `/steer` | 中断 / 插话 |
 | `GET /api/sessions/{id}/messages` | 服务端权威历史兜底 |
+
+## 安全模型（2026-10 入侵复盘后的加固）
+
+本节记录一次真实入侵（服务端 SSH 凭据被改写、系统重装）后的客户端加固。**核心教训：持有
+API key 即等于持有服务端的远程命令执行能力**（Hermes agent 能跑 terminal），因此 key 的任何
+泄漏面都必须消除：
+
+1. **Run prompt 中永不嵌入主 API key。** 旧实现把主 key 拼进 instructions 教 agent 用 curl
+   回传文件——prompt 会落盘到服务端会话记录，且与不可信内容（网页、上传文件）一起被处理，
+   一次 prompt injection 即可外传 key。现在客户端先调 `POST /v1/uploads/token` 换取短时效、
+   仅限 `POST /upload` 的 scoped token（约定前缀 `uat_`），只把它写进 prompt；服务端未部署
+   该端点时，文件回传能力自动降级（不回退到主 key）。
+2. **凭据只在 TLS 上发送。** 所有 OkHttp 拦截器仅在最终 URL 为 `https://` 时附加
+   `Authorization` 头；`http://` Base URL 只会产生匿名请求（设置页同时给出明文警告）。
+3. **密钥静态加密。** API key 与 ntfy push token 经 Android Keystore（AES-256-GCM）加密后
+   才写入 DataStore，旧明文条目首启自动迁移；备份规则继续把它们排除出云备份。
+4. **不内置任何默认服务器地址。** 首次启动必须自行填写 Base URL。
+
+### 服务端契约：`POST /v1/uploads/token`
+
+需要主 API key 认证（走 `Authorization: Bearer <API_KEY>`），返回：
+
+```json
+{ "token": "uat_<random>", "expires_in": 600 }
+```
+
+- token 仅被文件服务的 `POST /upload` 接受，**不能**调用 Runs API 或读写其它资源；
+- TTL 建议 ≤ 10 分钟，一次性使用更佳；
+- 客户端每次发消息前现取现用，不做缓存。
+
+### 重新部署服务端时的清单
+
+- 更换全部密钥；`API_SERVER_KEY` 只存 `~/.hermes/.env`（`chmod 600`），并支持轮换；
+- SSH：`PasswordAuthentication no`、`PermitRootLogin no`，安全组把 22 限制到自己的出口 IP；
+- Hermes 服务以独立非特权用户运行，其 `~/.ssh` 不可写，terminal 工具加敏感路径黑名单
+  （`~/.ssh`、`~/.hermes/.env`、`/etc`）；
+- 文件服务 `/files/{id}` 的 `id` 必须是查表 ID 而非磁盘路径（防 path traversal），upload
+  落盘目录独立且无执行权限；
+- nginx 加 `limit_req`，留存访问日志并定期审计 401 聚集的来源 IP；
+- ntfy topic 视为秘密或强制 token 订阅。
 
 ## 许可
 

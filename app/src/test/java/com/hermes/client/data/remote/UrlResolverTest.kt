@@ -14,11 +14,11 @@ class UrlResolverTest {
     @Test
     fun prependsBasePathExactlyOnceForRelativeRequest() {
         val resolved = UrlResolver.resolve(
-            base = "https://test.monsoons.dev/hermes-api",
+            base = "https://hermes.example.com/hermes-api",
             requestUrl = "http://localhost/v1/runs/run_1/events".toHttpUrl(),
         )
         assertEquals(
-            "https://test.monsoons.dev/hermes-api/v1/runs/run_1/events",
+            "https://hermes.example.com/hermes-api/v1/runs/run_1/events",
             resolved.toString(),
         )
     }

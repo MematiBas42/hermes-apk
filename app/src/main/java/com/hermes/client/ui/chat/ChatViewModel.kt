@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -98,6 +99,15 @@ class ChatViewModel @Inject constructor(
     init {
         // Slash-command list is served by the file service so it can be edited server-side.
         refreshCommands()
+        // A session that exists only server-side (cron-job transcripts, sessions created on
+        // other clients) opens with an empty local cache — pull the transcript once so the
+        // deep link lands on real content instead of an empty chat waiting for a manual sync.
+        viewModelScope.launch {
+            val first = chatRepository.observeMessages(sessionId).first()
+            if (first.isEmpty()) {
+                runCatching { chatRepository.fetchHistory(sessionId) }
+            }
+        }
     }
 
     fun onInputChange(value: String) {
@@ -224,6 +234,13 @@ class ChatViewModel @Inject constructor(
     fun openMedia(url: String, name: String? = null) {
         viewModelScope.launch {
             if (!fileService.isFilesUrl(url)) {
+                // Only hand http(s) links to the browser: passing arbitrary schemes (file://,
+                // content://, intent://…) to ACTION_VIEW just widens the attack surface.
+                val scheme = Uri.parse(url).scheme?.lowercase()
+                if (scheme != "http" && scheme != "https") {
+                    emitError("仅支持打开 http/https 链接")
+                    return@launch
+                }
                 runCatching {
                     context.startActivity(
                         Intent(Intent.ACTION_VIEW, Uri.parse(url))

@@ -7,6 +7,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import com.hermes.client.data.remote.NtfyPushController
 import com.hermes.client.notifications.RunCompletionNotifier
 import com.hermes.client.worker.WorkScheduler
 import dagger.hilt.android.HiltAndroidApp
@@ -20,6 +21,7 @@ class HermesApp : Application(), Configuration.Provider, ImageLoaderFactory {
     @Inject lateinit var workScheduler: WorkScheduler
     @Inject lateinit var imageLoader: ImageLoader
     @Inject lateinit var appVisibility: AppVisibility
+    @Inject lateinit var ntfyPush: NtfyPushController
 
     override fun newImageLoader(): ImageLoader = imageLoader
 
@@ -32,8 +34,15 @@ class HermesApp : Application(), Configuration.Provider, ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
-            override fun onActivityStarted(activity: Activity) = appVisibility.onActivityStarted()
-            override fun onActivityStopped(activity: Activity) = appVisibility.onActivityStopped()
+            override fun onActivityStarted(activity: Activity) {
+                val wasBackground = !appVisibility.isForeground
+                appVisibility.onActivityStarted()
+                if (wasBackground && appVisibility.isForeground) ntfyPush.setForeground(true)
+            }
+            override fun onActivityStopped(activity: Activity) {
+                appVisibility.onActivityStopped()
+                if (!appVisibility.isForeground) ntfyPush.setForeground(false)
+            }
             override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
             override fun onActivityResumed(activity: Activity) = Unit
             override fun onActivityPaused(activity: Activity) = Unit
@@ -41,6 +50,8 @@ class HermesApp : Application(), Configuration.Provider, ImageLoaderFactory {
             override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
         })
         notifier.ensureChannel()
+        // Foreground ntfy subscription for instant cron-job pushes (no-op until configured).
+        runCatching { ntfyPush.start() }
         // Fallback polling so notifications still land while the app is killed.
         runCatching { workScheduler.ensurePeriodicReconcile() }
     }

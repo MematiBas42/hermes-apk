@@ -22,7 +22,8 @@ class FilesUrlInterceptor(
         val newUrl = UrlResolver.resolve(base, original.url)
         val builder = original.newBuilder().url(newUrl)
         val key = settings.cachedApiKey.trim()
-        if (key.isNotEmpty() && original.header("Authorization") == null) {
+        // Credentials only travel over TLS (see DynamicUrlInterceptor).
+        if (key.isNotEmpty() && newUrl.isHttps && original.header("Authorization") == null) {
             builder.header("Authorization", "Bearer $key")
         }
         return chain.proceed(builder.build())
@@ -30,8 +31,9 @@ class FilesUrlInterceptor(
 }
 
 /**
- * Adds the Bearer token only for URLs that belong to the file service. Used by Coil so Markdown
- * images served by the file service can be loaded without leaking the key to arbitrary hosts.
+ * Adds the Bearer token only for HTTPS URLs that belong to the file service. Used by Coil so
+ * Markdown images served by the file service can be loaded without leaking the key to arbitrary
+ * hosts — and never in the clear.
  */
 class FilesAuthInterceptor(
     private val settings: SettingsRepository,
@@ -41,7 +43,7 @@ class FilesAuthInterceptor(
         val request = chain.request()
         val base = settings.cachedFilesBaseUrl.trim().trimEnd('/')
         val key = settings.cachedApiKey.trim()
-        val matches = base.isNotEmpty() && key.isNotEmpty() &&
+        val matches = base.isNotEmpty() && key.isNotEmpty() && request.url.isHttps &&
             request.url.toString().startsWith(base)
         return if (matches) {
             chain.proceed(

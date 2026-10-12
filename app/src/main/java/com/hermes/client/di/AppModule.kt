@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.hermes.client.data.local.HermesDatabase
+import com.hermes.client.data.local.JobDao
 import com.hermes.client.data.local.MessageDao
 import com.hermes.client.data.local.RunDao
 import com.hermes.client.data.local.SessionDao
@@ -15,7 +16,9 @@ import com.hermes.client.data.remote.FilesApi
 import com.hermes.client.data.remote.FilesAuthInterceptor
 import com.hermes.client.data.remote.FilesUrlInterceptor
 import com.hermes.client.data.remote.HermesApi
+import com.hermes.client.data.prefs.SecretCipher
 import com.hermes.client.data.prefs.SettingsRepository
+import com.hermes.client.data.prefs.KeystoreSecretCipher
 import coil.ImageLoader
 import dagger.Module
 import dagger.Provides
@@ -35,6 +38,10 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
+
+    @Provides
+    @Singleton
+    fun provideSecretCipher(): SecretCipher = KeystoreSecretCipher()
 
     @Provides
     @Singleton
@@ -151,11 +158,35 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `jobs` (" +
+                    "`id` TEXT NOT NULL, `name` TEXT NOT NULL, `prompt` TEXT NOT NULL, " +
+                    "`schedule` TEXT NOT NULL, `scheduleDisplay` TEXT NOT NULL, " +
+                    "`deliver` TEXT NOT NULL, `enabled` INTEGER NOT NULL, " +
+                    "`paused` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, " +
+                    "`nextRunAt` INTEGER NOT NULL, `lastRunAt` INTEGER NOT NULL, " +
+                    "`lastStatus` TEXT, `lastError` TEXT, `lastDeliveryError` TEXT, " +
+                    "`failureStreak` INTEGER NOT NULL, `repeatCompleted` INTEGER NOT NULL, " +
+                    "`repeatTimes` INTEGER, `lastExecutionId` TEXT, " +
+                    "`lastExecutionStatus` TEXT, `lastSessionId` TEXT, " +
+                    "`updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+            )
+        }
+    }
+
+    private val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE jobs ADD COLUMN noAgent INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): HermesDatabase =
         Room.databaseBuilder(context, HermesDatabase::class.java, HermesDatabase.NAME)
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
 
     @Provides
@@ -166,4 +197,7 @@ object DatabaseModule {
 
     @Provides
     fun provideRunDao(db: HermesDatabase): RunDao = db.runDao()
+
+    @Provides
+    fun provideJobDao(db: HermesDatabase): JobDao = db.jobDao()
 }

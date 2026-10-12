@@ -77,6 +77,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.setFilesBaseUrl(value) }
     }
 
+    fun saveJobsPush(url: String, topic: String, token: String) {
+        viewModelScope.launch {
+            settingsRepository.setJobsPushUrl(url)
+            settingsRepository.setJobsPushTopic(topic)
+            settingsRepository.setJobsPushToken(token)
+        }
+    }
+
     /** Copy the picked image into app storage so it survives content-URI revocation. */
     fun setAssistantAvatar(uri: Uri) {
         viewModelScope.launch {

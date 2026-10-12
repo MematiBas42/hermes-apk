@@ -12,6 +12,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.hermes.client.data.repository.JobsRepository
 import com.hermes.client.data.repository.RunManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -25,10 +26,13 @@ class RunReconcileWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
     private val runManager: RunManager,
+    private val jobsRepository: JobsRepository,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
         runManager.reconcileAll()
+        // Same cadence, one extra cheap request: catch finished cron jobs and notify.
+        runCatching { jobsRepository.sync(notify = true) }
         return Result.success()
     }
 }

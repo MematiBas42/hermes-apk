@@ -448,9 +448,12 @@ class RunManager @Inject constructor(
             ) {
                 return false
             }
-            val response = runCatching { api.sessionMessages(sessionId) }.getOrNull()
-            if (response != null && response.data.isNotEmpty()) {
-                val entities = HistoryFolder.fold(sessionId, response.data, local)
+            // Full paged fetch (newest-first, reassembled chronologically): a single limit=500
+            // call would return the OLDEST window for sessions with >500 transcript rows and the
+            // replace below would then wipe the newest turns (see SessionHistoryPager).
+            val response = runCatching { SessionHistoryPager.fetchAll(api, sessionId) }.getOrNull()
+            if (response != null && response.isNotEmpty()) {
+                val entities = HistoryFolder.fold(sessionId, response, local)
                 val last = entities.lastOrNull()
                 // Stale transcript (assistant turn not persisted yet): the last row would still be
                 // our own user message. Wait for it rather than wiping the streamed answer.

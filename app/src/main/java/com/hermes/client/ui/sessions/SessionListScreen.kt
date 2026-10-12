@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.AlertDialog
@@ -66,6 +67,7 @@ import com.hermes.client.ui.util.formatRelativeTime
 fun SessionListRoute(
     onOpenSession: (String) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenJobs: () -> Unit,
     viewModel: SessionListViewModel = hiltViewModel(),
 ) {
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
@@ -84,6 +86,7 @@ fun SessionListRoute(
         snackbarHostState = snackbarHostState,
         onOpenSession = onOpenSession,
         onOpenSettings = onOpenSettings,
+        onOpenJobs = onOpenJobs,
         onNewSession = { viewModel.createSession(onOpenSession) },
         onSync = viewModel::syncAll,
         onRename = viewModel::rename,
@@ -100,6 +103,7 @@ fun SessionListScreen(
     snackbarHostState: SnackbarHostState,
     onOpenSession: (String) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenJobs: () -> Unit,
     onNewSession: () -> Unit,
     onSync: () -> Unit,
     onRename: (String, String) -> Unit,
@@ -129,6 +133,9 @@ fun SessionListScreen(
                         } else {
                             Icon(Icons.Rounded.Sync, contentDescription = "同步全部会话")
                         }
+                    }
+                    IconButton(onClick = onOpenJobs) {
+                        Icon(Icons.Rounded.Schedule, contentDescription = "定时任务")
                     }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Rounded.Settings, contentDescription = "设置")

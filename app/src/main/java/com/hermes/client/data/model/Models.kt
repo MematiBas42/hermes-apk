@@ -112,3 +112,31 @@ data class ChatSession(
     val activeRunId: String?,
     val activeRunState: RunState?,
 )
+
+/** A Hermes cron job, mirrored from `/api/jobs` (see [com.hermes.client.data.repository.JobsRepository]). */
+data class CronJob(
+    val id: String,
+    val name: String,
+    val prompt: String,
+    /** Human-readable schedule ("every 2h", "0 9 * * *"). */
+    val schedule: String,
+    val deliver: String,
+    val enabled: Boolean,
+    val paused: Boolean,
+    /** Script-only job: no agent turn and therefore no transcript session. */
+    val noAgent: Boolean,
+    val nextRunAt: Long,
+    val lastRunAt: Long,
+    val lastStatus: String?,
+    val lastError: String?,
+    val lastDeliveryError: String?,
+    val failureStreak: Int,
+    val repeatCompleted: Int,
+    val repeatTimes: Int?,
+    /** Newest run-transcript session (`cron_{jobId}_{ts}`) — the deep-link target. */
+    val lastSessionId: String?,
+    val lastExecutionId: String?,
+    val updatedAt: Long,
+) {
+    val isFinished: Boolean get() = !enabled && repeatTimes != null && repeatCompleted >= repeatTimes
+}

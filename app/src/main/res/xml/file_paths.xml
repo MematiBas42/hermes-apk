@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <!-- Downloads are cached here before being opened/shared. -->
+    <!-- Downloads are cached here before being opened/shared. Keep this list minimal: the
+         file/files roots used to be exposed wholesale, which made the DataStore file (API key)
+         and the Room database reachable through the provider if any code path ever handed out
+         such a URI. Only the single downloads/ subtree is ever shared (ChatViewModel.openMedia). -->
     <cache-path name="downloads" path="downloads/" />
-    <cache-path name="cache" path="." />
-    <files-path name="files" path="." />
 </paths>

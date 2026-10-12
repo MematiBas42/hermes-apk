@@ -31,15 +31,26 @@ class RunCompletionNotifier @Inject constructor(
     fun ensureChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
-        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            context.getString(R.string.notification_channel_name),
-            NotificationManager.IMPORTANCE_DEFAULT,
-        ).apply {
-            description = context.getString(R.string.notification_channel_description)
+        listOf(
+            NotificationChannel(
+                CHANNEL_ID,
+                context.getString(R.string.notification_channel_name),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = context.getString(R.string.notification_channel_description)
+            },
+            NotificationChannel(
+                JOBS_CHANNEL_ID,
+                context.getString(R.string.notification_channel_jobs_name),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = context.getString(R.string.notification_channel_jobs_description)
+            },
+        ).forEach { channel ->
+            if (manager.getNotificationChannel(channel.id) == null) {
+                manager.createNotificationChannel(channel)
+            }
         }
-        manager.createNotificationChannel(channel)
     }
 
     fun notifyRun(
@@ -83,7 +94,59 @@ class RunCompletionNotifier @Inject constructor(
         }
     }
 
+    /**
+     * A finished cron job. Deep-links into the run transcript session when we know it
+     * ([sessionId]), otherwise into the 定时任务 screen ([MainActivity.EXTRA_OPEN_JOBS]) —
+     * `no_agent` script jobs never create a session.
+     */
+    fun notifyJob(
+        jobId: String,
+        sessionId: String?,
+        title: String,
+        message: String,
+        success: Boolean,
+    ) {
+        ensureChannel()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        val notifyId = nextNotifyId.getAndIncrement()
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            if (sessionId != null) {
+                putExtra(MainActivity.EXTRA_SESSION_ID, sessionId)
+            } else {
+                putExtra(MainActivity.EXTRA_OPEN_JOBS, true)
+            }
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notifyId,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = NotificationCompat.Builder(context, JOBS_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+
+        runCatching {
+            NotificationManagerCompat.from(context).notify(notifyId, notification)
+        }
+    }
+
     companion object {
         const val CHANNEL_ID = "hermes_runs"
+        const val JOBS_CHANNEL_ID = "hermes_jobs"
     }
 }

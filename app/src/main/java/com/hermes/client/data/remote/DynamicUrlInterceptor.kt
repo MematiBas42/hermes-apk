@@ -31,7 +31,9 @@ class DynamicUrlInterceptor(
 
         val builder = original.newBuilder().url(newUrl)
         val key = settings.cachedApiKey.trim()
-        if (key.isNotEmpty() && original.header("Authorization") == null) {
+        // Credentials only travel over TLS: a plaintext http:// Base URL would broadcast the
+        // master key (which is RCE on the server) to every hop on the path.
+        if (key.isNotEmpty() && newUrl.isHttps && original.header("Authorization") == null) {
             builder.header("Authorization", "Bearer $key")
         }
         return chain.proceed(builder.build())

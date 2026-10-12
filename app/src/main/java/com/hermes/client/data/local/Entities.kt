@@ -58,3 +58,39 @@ data class RunEntity(
     val notified: Boolean = false,
     val usage: Usage? = null,
 )
+
+/**
+ * Local mirror of a Hermes cron job (`/api/jobs`). `lastExecutionId` is the dedupe key for
+ * completion notifications — the server mints a fresh uuid per fire in its executions ledger —
+ * and `lastSessionId` remembers the run transcript session (`cron_{job_id}_{ts}`) that a
+ * notification deep-links into.
+ */
+@Entity(tableName = "jobs")
+data class JobEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val prompt: String = "",
+    val schedule: String = "",
+    val scheduleDisplay: String = "",
+    val deliver: String = "local",
+    val enabled: Boolean = true,
+    val paused: Boolean = false,
+    /** Script-only job: no agent turn, no transcript session to deep-link into. */
+    val noAgent: Boolean = false,
+    val createdAt: Long = 0,
+    val nextRunAt: Long = 0,
+    val lastRunAt: Long = 0,
+    val lastStatus: String? = null,
+    val lastError: String? = null,
+    val lastDeliveryError: String? = null,
+    val failureStreak: Int = 0,
+    val repeatCompleted: Int = 0,
+    val repeatTimes: Int? = null,
+    /** Executions-ledger uuid of the newest fire we already notified about. */
+    val lastExecutionId: String? = null,
+    /** Terminal status of that execution (completed/failed/unknown), if known. */
+    val lastExecutionStatus: String? = null,
+    /** The newest run-transcript session id for this job (deep-link target). */
+    val lastSessionId: String? = null,
+    val updatedAt: Long = 0,
+)

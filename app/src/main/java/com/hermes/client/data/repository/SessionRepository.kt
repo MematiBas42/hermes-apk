@@ -67,6 +67,10 @@ class SessionRepository @Inject constructor(
      * Pull every session the server knows about (including ones created outside this app) and
      * merge them into the local list. New rows are inserted; existing rows keep their local title
      * unless it is still the default, so a local rename is not clobbered. Returns the count merged.
+     *
+     * Cron-run transcripts (`source == "cron"`, id `cron_{job_id}_{ts}`) are deliberately kept
+     * OUT of the conversation list — they belong to the 定时任务 screen, which links into them
+     * directly. Any that an older sync leaked into the local table are cleaned up here.
      */
     suspend fun syncAll(): Result<Int> = withContext(Dispatchers.IO) {
         runCatching {
@@ -81,6 +85,13 @@ class SessionRepository @Inject constructor(
                     if (server.id.isBlank()) continue
                     // Internal sub-agent / hidden sessions are not user conversations.
                     if (server.hidden || server.isInternalChild || !server.parentSessionId.isNullOrBlank()) continue
+                    // Scheduled-task transcripts live behind the jobs screen only.
+                    if (server.source == "cron" || server.id.startsWith("cron_")) {
+                        db.messageDao().deleteForSession(server.id)
+                        db.runDao().deleteForSession(server.id)
+                        sessionDao.delete(server.id)
+                        continue
+                    }
                     val startedAt = ((server.startedAt ?: 0.0) * 1000).toLong().takeIf { it > 0 } ?: now
                     val lastActive = ((server.lastActive ?: server.startedAt ?: 0.0) * 1000).toLong()
                         .takeIf { it > 0 } ?: startedAt

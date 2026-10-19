@@ -8,6 +8,8 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
+import com.hermes.client.HermesApp
+import com.hermes.client.R
 import com.hermes.client.data.local.HermesDatabase
 import com.hermes.client.data.local.MessageEntity
 import com.hermes.client.data.local.RunEntity
@@ -99,7 +101,7 @@ class ChatRepository @Inject constructor(
 
     /** Re-run an existing user turn, discarding everything that came after it. */
     suspend fun resend(userMessageId: Long): Result<String> {
-        val message = messageDao.get(userMessageId) ?: return Result.failure(IllegalArgumentException("消息不存在"))
+        val message = messageDao.get(userMessageId) ?: return Result.failure(IllegalArgumentException(HermesApp.string(R.string.msg_not_found)))
         // Rewriting history while a task is still running would orphan its stream: stop it first.
         stopActiveRun(message.sessionId)
         truncateAfter(message.sessionId, message.seq)
@@ -108,7 +110,7 @@ class ChatRepository @Inject constructor(
 
     /** Edit a user turn in place and re-run it. */
     suspend fun editAndResend(userMessageId: Long, newText: String): Result<String> {
-        val message = messageDao.get(userMessageId) ?: return Result.failure(IllegalArgumentException("消息不存在"))
+        val message = messageDao.get(userMessageId) ?: return Result.failure(IllegalArgumentException(HermesApp.string(R.string.msg_not_found)))
         messageDao.update(
             message.copy(content = newText, updatedAt = System.currentTimeMillis()),
         )
@@ -143,7 +145,7 @@ class ChatRepository @Inject constructor(
                 sessionDao.upsert(
                     com.hermes.client.data.local.SessionEntity(
                         id = sessionId,
-                        title = text.take(24).ifBlank { "新会话" },
+                        title = text.take(24).ifBlank { HermesApp.string(R.string.new_session_title) },
                         createdAt = createdAt,
                         updatedAt = createdAt,
                     ),
@@ -179,7 +181,7 @@ class ChatRepository @Inject constructor(
                 instructions = buildInstructions(settingsSnapshot, uploaded, uploadGrant),
             )
             val created = createRunWithDrainRetry(request)
-            val runId = created.runId ?: error("服务器未返回 run_id")
+            val runId = created.runId ?: error(HermesApp.string(R.string.run_id_missing))
             createdRunId = runId
 
             // The user hit stop while the POST was in flight and the placeholder was already
@@ -258,7 +260,7 @@ class ChatRepository @Inject constructor(
                         messageDao.update(
                             message.copy(
                                 status = MessageStatus.ERROR.name,
-                                error = error.message ?: "发起任务失败",
+                                error = error.message ?: HermesApp.string(R.string.task_start_failed),
                                 updatedAt = System.currentTimeMillis(),
                             ),
                         )
@@ -285,7 +287,7 @@ class ChatRepository @Inject constructor(
             messageDao.update(
                 message.copy(
                     status = MessageStatus.CANCELLED.name,
-                    error = "已取消",
+                    error = HermesApp.string(R.string.task_cancelled_tag),
                     updatedAt = now,
                 ),
             )
@@ -400,7 +402,7 @@ class ChatRepository @Inject constructor(
             val hasActive = messageDao.list(sessionId).any {
                 it.status == MessageStatus.STREAMING.name || it.status == MessageStatus.PENDING.name
             }
-            check(!hasActive) { "任务进行中，请等待完成或中断后再同步历史" }
+            check(!hasActive) { HermesApp.string(R.string.task_in_progress_sync_wait) }
 
             val response = SessionHistoryPager.fetchAll(api, sessionId)
             if (response.isEmpty()) return@runCatching 0
@@ -416,7 +418,7 @@ class ChatRepository @Inject constructor(
                 val fresh = messageDao.list(sessionId)
                 check(fresh.size == previous.size && fresh.none {
                     it.status == MessageStatus.STREAMING.name || it.status == MessageStatus.PENDING.name
-                }) { "会话在同步期间发生了变化，请重试" }
+                }) { HermesApp.string(R.string.session_changed_retry) }
                 messageDao.deleteForSession(sessionId)
                 entities.forEach { messageDao.insert(it) }
             }

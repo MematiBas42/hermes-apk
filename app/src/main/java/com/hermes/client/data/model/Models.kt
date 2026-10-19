@@ -35,7 +35,7 @@ data class Usage(
 )
 
 /**
- * One "round" of an agent turn, rendered in order as 思维链 → toolcall → 正文.
+ * One "round" of an agent turn, rendered in order as reasoning -> toolcall -> text.
  *
  * Hermes runs an agent loop: each iteration produces reasoning, zero or more tool calls, and
  * (optionally) interim assistant text. The stream exposes those as `reasoning.*`, `tool.*`,

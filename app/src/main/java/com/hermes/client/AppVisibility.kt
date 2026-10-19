@@ -37,7 +37,7 @@ class ChatVisibility @Inject constructor() {
 }
 
 /**
- * Whether the 定时任务 screen is on screen, so job-completion notifications stay quiet while
+ * Whether the Jobs/Cron screen is on screen, so job-completion notifications stay quiet while
  * the user is watching the very list that just refreshed.
  */
 @Singleton

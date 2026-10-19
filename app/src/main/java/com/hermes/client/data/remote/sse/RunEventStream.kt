@@ -1,6 +1,8 @@
 package com.hermes.client.data.remote.sse
 
 import com.google.gson.Gson
+import com.hermes.client.HermesApp
+import com.hermes.client.R
 import com.hermes.client.data.remote.dto.RunEventDto
 import com.hermes.client.data.prefs.SettingsRepository
 import com.hermes.client.di.SseClient
@@ -37,7 +39,7 @@ class RunEventStream @Inject constructor(
      */
     fun events(runId: String): Flow<RunEventDto> = callbackFlow {
         if (settings.cachedBaseUrl.isBlank()) {
-            close(IOException("尚未配置服务器地址"))
+            close(IOException(HermesApp.string(R.string.server_url_not_configured)))
             awaitClose { }
             return@callbackFlow
         }
@@ -62,7 +64,7 @@ class RunEventStream @Inject constructor(
             }
 
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
-                close(t ?: IOException("事件流断开 (HTTP ${response?.code})"))
+                close(t ?: IOException(HermesApp.string(R.string.stream_disconnected, response?.code?.toString() ?: "")))
             }
         }
 

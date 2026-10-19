@@ -2,6 +2,8 @@ package com.hermes.client.data.repository
 
 import android.content.Context
 import android.net.Uri
+import com.hermes.client.HermesApp
+import com.hermes.client.R
 import com.hermes.client.data.model.Attachment
 import com.hermes.client.data.prefs.SettingsRepository
 import com.hermes.client.data.remote.FilesApi
@@ -51,7 +53,7 @@ class FileServiceRepository @Inject constructor(
 
                 override fun writeTo(sink: BufferedSink) {
                     val input = context.contentResolver.openInputStream(uri)
-                        ?: throw IOException("无法读取 ${attachment.name}")
+                        ?: throw IOException(HermesApp.string(R.string.cannot_read_file, attachment.name))
                     input.use { sink.writeAll(it.source()) }
                 }
             }

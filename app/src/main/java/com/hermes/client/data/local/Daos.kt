@@ -12,7 +12,7 @@ interface SessionDao {
     /**
      * Conversation list. Cron-run transcripts are excluded at the query level too (defense in
      * depth behind [com.hermes.client.data.repository.SessionRepository.syncAll]'s filter): they
-     * are only reachable from the 定时任务 screen.
+     * are only reachable from the Jobs screen.
      */
     @Query("SELECT * FROM sessions WHERE id NOT LIKE 'cron\\_%' ESCAPE '\\' ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<SessionEntity>>

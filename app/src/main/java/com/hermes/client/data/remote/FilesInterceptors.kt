@@ -1,5 +1,7 @@
 package com.hermes.client.data.remote
 
+import com.hermes.client.HermesApp
+import com.hermes.client.R
 import com.hermes.client.data.prefs.SettingsRepository
 import okhttp3.Interceptor
 import okhttp3.Response
@@ -17,7 +19,7 @@ class FilesUrlInterceptor(
         val original = chain.request()
         val base = settings.cachedFilesBaseUrl.trim()
         if (base.isBlank()) {
-            throw IOException("尚未配置文件服务地址")
+            throw IOException(HermesApp.string(R.string.files_url_not_configured))
         }
         val newUrl = UrlResolver.resolve(base, original.url)
         val builder = original.newBuilder().url(newUrl)

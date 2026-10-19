@@ -5,6 +5,8 @@ import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.hermes.client.AppVisibility
 import com.hermes.client.ChatVisibility
+import com.hermes.client.HermesApp
+import com.hermes.client.R
 import com.hermes.client.data.local.HermesDatabase
 import com.hermes.client.data.local.MessageEntity
 import com.hermes.client.data.local.RunEntity
@@ -41,7 +43,7 @@ import javax.inject.Singleton
  *     when the app comes back.
  *
  * Hermes runs an agent loop, so one run can contain several rounds of
- * `思维链 -> toolcall -> 正文`. The stream is folded into an ordered list of [MessageSegment]s
+ * `reasoning -> toolcall -> text`. The stream is folded into an ordered list of [MessageSegment]s
  * (see [StreamState]) instead of a single flat reasoning/tool/text blob, which keeps the timeline
  * faithful during streaming *and* after a server-history sync.
  */
@@ -97,7 +99,7 @@ class RunManager @Inject constructor(
                 messageDao.update(
                     message.copy(
                         status = MessageStatus.ERROR.name,
-                        error = "消息未发出（应用在发送过程中被关闭），请重新发送",
+                        error = HermesApp.string(R.string.msg_not_sent_app_closed),
                         updatedAt = now,
                     ),
                 )
@@ -212,7 +214,7 @@ class RunManager @Inject constructor(
             "reasoning.available" -> {
                 // On this deployment `reasoning.available` just echoes the assistant's visible text
                 // (the server relays `assistant_message.content`), so recording it would duplicate
-                // the body under "思考过程". The real per-round chain-of-thought is only in the
+                // the body under "reasoning". The real per-round chain-of-thought is only in the
                 // server transcript, which [syncFromServer] applies when the run completes.
                 state.requestFlush()
             }
@@ -348,7 +350,7 @@ class RunManager @Inject constructor(
         val segments = existing?.segments.orEmpty().takeIf { segs -> segs.any { !it.isEmpty } }
             ?: dto.output?.takeIf { it.isNotBlank() }?.let { listOf(MessageSegment(text = it)) }
             ?: emptyList()
-        val error = dto.error?.pretty() ?: if (runState == RunState.FAILED) "任务失败" else null
+        val error = dto.error?.pretty() ?: if (runState == RunState.FAILED) HermesApp.string(R.string.task_failed) else null
         finalizeRun(
             runId = run.runId,
             sessionId = run.sessionId,
@@ -432,7 +434,7 @@ class RunManager @Inject constructor(
 
     /**
      * Replace the local cache with the authoritative server transcript, in the exact shape the
-     * streaming path produces. Called right after a run completes so a manual "同步服务端历史"
+     * streaming path produces. Called right after a run completes so a manual "Sync History"
      * becomes a no-op, and the real per-round reasoning replaces the streamed approximation.
      *
      * Retries a few times: the session row can lag the `run.completed` event by a moment.
@@ -505,9 +507,9 @@ class RunManager @Inject constructor(
         val session = sessionDao.get(sessionId)
         val title = session?.title ?: "Hermes"
         val body = when (runState) {
-            RunState.COMPLETED -> content.ifBlank { "任务已完成" }.take(160)
-            RunState.CANCELLED, RunState.INTERRUPTED -> "任务已中断"
-            else -> (error ?: "任务失败").take(160)
+            RunState.COMPLETED -> content.ifBlank { HermesApp.string(R.string.task_completed) }.take(160)
+            RunState.CANCELLED, RunState.INTERRUPTED -> HermesApp.string(R.string.task_interrupted)
+            else -> (error ?: HermesApp.string(R.string.task_failed)).take(160)
         }
         notifier.notifyRun(
             sessionId = sessionId,
@@ -603,7 +605,7 @@ class RunManager @Inject constructor(
     private fun aggregateReasoning(segments: List<MessageSegment>): String =
         segments.map { it.reasoning.trim() }.filter { it.isNotEmpty() }.joinToString("\n\n")
 
-    /** One in-progress round (思维链 / toolcall / 正文). */
+    /** One in-progress round (reasoning / toolcall / text). */
     private inner class Seg {
         val reasoning = StringBuilder()
         val tools = mutableListOf<ToolEvent>()

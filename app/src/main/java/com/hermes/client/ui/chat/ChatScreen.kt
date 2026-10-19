@@ -68,6 +68,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -75,6 +76,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.hermes.client.R
 import com.hermes.client.data.model.Attachment
 import com.hermes.client.data.model.AttachmentKind
 import com.hermes.client.data.model.ChatMessage
@@ -92,7 +94,8 @@ fun ChatRoute(
     val attachments by viewModel.attachments.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val isRunning by viewModel.isRunning.collectAsStateWithLifecycle()
-    val commands by viewModel.commands.collectAsStateWithLifecycle()
+    val remoteCommands by viewModel.remoteCommands.collectAsStateWithLifecycle()
+    val commands = remoteCommands ?: viewModel.defaultCommands()
     val context = LocalContext.current
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -123,7 +126,7 @@ fun ChatRoute(
         if (file != null) {
             isRecording = true
         } else {
-            viewModel.notify("无法开始录音")
+            viewModel.notify(context.getString(R.string.cannot_start_recording))
         }
     }
     val audioPermissionLauncher = rememberLauncherForActivityResult(
@@ -132,7 +135,7 @@ fun ChatRoute(
         if (granted) {
             startRecording()
         } else {
-            viewModel.notify("需要麦克风权限才能发语音")
+            viewModel.notify(context.getString(R.string.mic_permission_required))
         }
     }
     DisposableEffect(Unit) {
@@ -140,7 +143,7 @@ fun ChatRoute(
     }
 
     ChatScreen(
-        title = session?.title ?: "会话",
+        title = session?.title ?: stringResource(R.string.chat_title),
         messages = messages,
         input = input,
         attachments = attachments,
@@ -166,7 +169,7 @@ fun ChatRoute(
             if (isRecording) {
                 isRecording = false
                 val file = recorder.stop()
-                if (file != null) viewModel.sendVoice(file) else viewModel.notify("录音失败")
+                if (file != null) viewModel.sendVoice(file) else viewModel.notify(context.getString(R.string.record_failed))
             } else {
                 val granted = ContextCompat.checkSelfPermission(
                     context,
@@ -242,24 +245,24 @@ fun ChatScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     IconButton(onClick = onRefresh) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = "同步服务端历史")
+                        Icon(Icons.Rounded.Refresh, contentDescription = stringResource(R.string.sync_history))
                     }
                     Box {
                         IconButton(onClick = { menuExpanded = true }) {
-                            Icon(Icons.Rounded.MoreVert, contentDescription = "更多")
+                            Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.more))
                         }
                         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                             DropdownMenuItem(
-                                text = { Text("重命名会话") },
+                                text = { Text(stringResource(R.string.rename_session)) },
                                 onClick = { menuExpanded = false; renameDialog = true },
                             )
                             DropdownMenuItem(
-                                text = { Text("同步服务端历史") },
+                                text = { Text(stringResource(R.string.sync_history)) },
                                 onClick = { menuExpanded = false; onRefresh() },
                             )
                         }
@@ -420,7 +423,7 @@ private fun AttachmentStrip(
                 ) {
                     Icon(
                         Icons.Rounded.Close,
-                        contentDescription = "移除",
+                        contentDescription = stringResource(R.string.remove_attachment),
                         modifier = Modifier.size(12.dp),
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
@@ -461,8 +464,8 @@ private fun ChatInputBar(
                 enabled = !isRecording,
                 placeholder = {
                     Text(
-                        if (isRecording) "录音中…点击右侧停止并发送"
-                        else "给 ${assistantName.ifBlank { "Hermes" }} 发消息…",
+                        if (isRecording) stringResource(R.string.input_recording)
+                        else stringResource(R.string.input_placeholder, assistantName.ifBlank { "Hermes" }),
                     )
                 },
                 maxLines = 6,
@@ -470,7 +473,7 @@ private fun ChatInputBar(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
                 leadingIcon = {
                     IconButton(onClick = onPickFiles) {
-                        Icon(Icons.Rounded.Add, contentDescription = "添加附件")
+                        Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.add_attachment))
                     }
                 },
                 trailingIcon = {
@@ -492,7 +495,7 @@ private fun ChatInputBar(
                         contentColor = MaterialTheme.colorScheme.onError,
                     ),
                 ) {
-                    Icon(Icons.Rounded.Stop, contentDescription = "停止录音")
+                    Icon(Icons.Rounded.Stop, contentDescription = stringResource(R.string.stop_recording))
                 }
             } else if (isRunning) {
                 // While a task runs the only action is interrupt — sending into the same session
@@ -504,7 +507,7 @@ private fun ChatInputBar(
                         contentColor = MaterialTheme.colorScheme.onErrorContainer,
                     ),
                 ) {
-                    Icon(Icons.Rounded.Stop, contentDescription = "中断")
+                    Icon(Icons.Rounded.Stop, contentDescription = stringResource(R.string.interrupt))
                 }
             } else if (input.isBlank()) {
                 FilledIconButton(
@@ -514,14 +517,14 @@ private fun ChatInputBar(
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     ),
                 ) {
-                    Icon(Icons.Rounded.Mic, contentDescription = "语音输入")
+                    Icon(Icons.Rounded.Mic, contentDescription = stringResource(R.string.voice_input))
                 }
             } else {
                 FilledIconButton(
                     onClick = onSend,
                     enabled = input.isNotBlank(),
                 ) {
-                    Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = "发送")
+                    Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = stringResource(R.string.send))
                 }
             }
         }
@@ -577,17 +580,17 @@ private fun RenameChatDialog(
     var value by remember { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("重命名会话") },
+        title = { Text(stringResource(R.string.rename_session)) },
         text = {
             OutlinedTextField(
                 value = value,
                 onValueChange = { value = it },
                 singleLine = true,
-                label = { Text("会话名称") },
+                label = { Text(stringResource(R.string.session_name)) },
             )
         },
-        confirmButton = { TextButton(onClick = { onConfirm(value) }) { Text("保存") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        confirmButton = { TextButton(onClick = { onConfirm(value) }) { Text(stringResource(R.string.save)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -600,7 +603,7 @@ private fun EditMessageDialog(
     var value by remember { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("编辑并重发") },
+        title = { Text(stringResource(R.string.edit_and_resend)) },
         text = {
             OutlinedTextField(
                 value = value,
@@ -609,7 +612,7 @@ private fun EditMessageDialog(
                 maxLines = 8,
             )
         },
-        confirmButton = { TextButton(onClick = { onConfirm(value) }) { Text("重发") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        confirmButton = { TextButton(onClick = { onConfirm(value) }) { Text(stringResource(R.string.resend)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }

@@ -2,7 +2,9 @@ package com.hermes.client.data.repository
 
 import com.hermes.client.AppVisibility
 import com.hermes.client.ChatVisibility
+import com.hermes.client.HermesApp
 import com.hermes.client.JobsVisibility
+import com.hermes.client.R
 import com.hermes.client.data.local.HermesDatabase
 import com.hermes.client.data.local.JobEntity
 import com.hermes.client.data.model.CronJob
@@ -111,15 +113,15 @@ class JobsRepository @Inject constructor(
         val runFailed = dto.lastStatus == "error" || dto.lastStatus == "blocked_config"
         val success = execution.status == "completed" && !runFailed
         val body = when {
-            success -> "第 ${dto.repeat?.completed ?: entity.repeatCompleted} 次执行完成，点按查看结果"
-            runFailed -> (dto.lastError ?: execution.error ?: "任务未完成（${execution.status}）").take(200)
+            success -> HermesApp.string(R.string.job_notif_success, dto.repeat?.completed ?: entity.repeatCompleted)
+            runFailed -> (dto.lastError ?: execution.error ?: HermesApp.string(R.string.job_notif_failed, execution.status ?: "")).take(200)
             // failed / unknown execution, no last_status yet
-            else -> (execution.error ?: "任务未完成（${execution.status}）").take(200)
+            else -> (execution.error ?: HermesApp.string(R.string.job_notif_failed, execution.status ?: "")).take(200)
         }
         notifier.notifyJob(
             jobId = entity.id,
             sessionId = sessionId,
-            title = "⏰ 定时任务「${entity.name}」",
+            title = HermesApp.string(R.string.job_notif_title, entity.name),
             message = body,
             success = success,
         )

@@ -2,6 +2,8 @@ package com.hermes.client.ui.sessions
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hermes.client.HermesApp
+import com.hermes.client.R
 import com.hermes.client.data.model.ChatSession
 import com.hermes.client.data.prefs.SettingsRepository
 import com.hermes.client.data.repository.SessionRepository
@@ -47,7 +49,7 @@ class SessionListViewModel @Inject constructor(
     fun delete(id: String) {
         viewModelScope.launch {
             val serverGone = sessionRepository.deleteSynced(id)
-            if (!serverGone) _events.tryEmit("已从本机删除，但服务端删除失败")
+            if (!serverGone) _events.tryEmit(HermesApp.string(R.string.session_deleted_local))
         }
     }
 
@@ -59,10 +61,15 @@ class SessionListViewModel @Inject constructor(
             try {
                 sessionRepository.syncAll().fold(
                     onSuccess = { count ->
-                        _events.tryEmit(if (count == 0) "没有可同步的会话" else "已同步 $count 个会话")
+                        _events.tryEmit(
+                            if (count == 0) HermesApp.string(R.string.session_none_to_sync)
+                            else HermesApp.string(R.string.session_synced_count, count)
+                        )
                     },
                     onFailure = { error ->
-                        _events.tryEmit("同步失败：${error.message ?: "网络错误"}")
+                        _events.tryEmit(
+                            HermesApp.string(R.string.sync_failed, error.message ?: HermesApp.string(R.string.network_error))
+                        )
                     },
                 )
             } finally {

@@ -1,5 +1,7 @@
 package com.hermes.client.data.remote
 
+import com.hermes.client.HermesApp
+import com.hermes.client.R
 import com.hermes.client.data.prefs.SettingsRepository
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -25,7 +27,7 @@ class DynamicUrlInterceptor(
         val original = chain.request()
         val base = settings.cachedBaseUrl.trim()
         if (base.isBlank()) {
-            throw IOException("尚未配置服务器地址，请先在设置中填写 Base URL")
+            throw IOException(HermesApp.string(R.string.server_url_not_configured))
         }
         val newUrl = UrlResolver.resolve(base, original.url)
 
@@ -44,7 +46,7 @@ class DynamicUrlInterceptor(
 object UrlResolver {
     fun resolve(base: String, requestUrl: HttpUrl): HttpUrl {
         val baseUrl = base.trim().trimEnd('/').toHttpUrlOrNull()
-            ?: throw IOException("服务器地址无效: $base")
+            ?: throw IOException(HermesApp.string(R.string.server_url_invalid, base))
         val relativePath = requestUrl.encodedPath.trimStart('/')
         return baseUrl.newBuilder()
             .apply {

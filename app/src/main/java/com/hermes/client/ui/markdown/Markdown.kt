@@ -37,6 +37,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.hermes.client.R
 import com.hermes.client.ui.theme.CodeBackgroundDark
 import com.hermes.client.ui.theme.CodeBackgroundLight
 import com.hermes.client.ui.theme.CodeTextStyle
@@ -418,13 +420,13 @@ private fun ImageBlock(alt: String, url: String, onOpenMedia: ((String) -> Unit)
         if (bitmap != null) {
             Image(
                 bitmap = bitmap.asImageBitmap(),
-                contentDescription = alt.ifBlank { "图片" },
+                contentDescription = alt.ifBlank { stringResource(R.string.image_placeholder) },
                 modifier = modifier,
                 contentScale = ContentScale.FillWidth,
             )
         } else {
             Text(
-                text = alt.ifBlank { "[图片]" },
+                text = alt.ifBlank { stringResource(R.string.image_placeholder) },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -432,7 +434,7 @@ private fun ImageBlock(alt: String, url: String, onOpenMedia: ((String) -> Unit)
     } else {
         AsyncImage(
             model = url,
-            contentDescription = alt.ifBlank { "图片" },
+            contentDescription = alt.ifBlank { stringResource(R.string.image_placeholder) },
             modifier = modifier,
             contentScale = ContentScale.FillWidth,
         )
@@ -475,7 +477,7 @@ private fun MediaChip(path: String, onOpenMedia: ((String) -> Unit)? = null) {
         if (onOpenMedia != null && !path.startsWith("/")) {
             Icon(
                 imageVector = Icons.Rounded.Download,
-                contentDescription = "下载",
+                contentDescription = stringResource(R.string.download),
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(18.dp),
             )
@@ -519,7 +521,7 @@ fun CodeBlock(code: String, lang: String?) {
             IconButton(onClick = { clipboard.setText(AnnotatedString(code)) }) {
                 Icon(
                     imageVector = Icons.Rounded.ContentCopy,
-                    contentDescription = "复制代码",
+                    contentDescription = stringResource(R.string.copy_code),
                     tint = SyntaxComment,
                     modifier = Modifier.size(18.dp),
                 )

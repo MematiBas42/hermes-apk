@@ -48,11 +48,13 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.hermes.client.R
 import com.hermes.client.data.model.Attachment
 import com.hermes.client.data.model.AttachmentKind
 import com.hermes.client.data.model.ChatMessage
@@ -160,7 +162,7 @@ fun UserMessage(
             }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(
-                    text = { Text("复制") },
+                    text = { Text(stringResource(R.string.copy)) },
                     leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },
                     onClick = {
                         clipboard.setText(AnnotatedString(message.content))
@@ -168,17 +170,17 @@ fun UserMessage(
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("编辑重发") },
+                    text = { Text(stringResource(R.string.edit_and_resend)) },
                     leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                     onClick = { menu = false; onEdit() },
                 )
                 DropdownMenuItem(
-                    text = { Text("重新生成") },
+                    text = { Text(stringResource(R.string.regenerate)) },
                     leadingIcon = { Icon(Icons.Rounded.Refresh, null) },
                     onClick = { menu = false; onResend() },
                 )
                 DropdownMenuItem(
-                    text = { Text("删除") },
+                    text = { Text(stringResource(R.string.delete)) },
                     leadingIcon = { Icon(Icons.Rounded.Delete, null) },
                     onClick = { menu = false; onDelete() },
                 )
@@ -196,7 +198,7 @@ private sealed interface RenderBlock {
 /**
  * Flatten segments into blocks. Reasoning is intentionally dropped, and consecutive tool calls
  * (tools that are not separated by any visible text) are merged into a single section so a long
- * agent loop shows one collapsible "工具调用 (N)" chip instead of one per round.
+ * agent loop shows one collapsible "Tools (N)" chip instead of one per round.
  */
 private fun buildRenderBlocks(segments: List<MessageSegment>): List<RenderBlock> {
     val out = ArrayList<RenderBlock>()
@@ -254,7 +256,7 @@ fun AssistantMessage(
                             Spacer(Modifier.width(10.dp))
                             val label = message.renderSegments.lastOrNull { it.tools.isNotEmpty() }
                                 ?.tools?.lastOrNull()
-                                ?.let { "正在执行 ${it.name}" } ?: "思考中"
+                                ?.let { stringResource(R.string.running_tool, it.name) } ?: stringResource(R.string.thinking)
                             Text(
                                 text = label,
                                 style = MaterialTheme.typography.bodyMedium,
@@ -278,7 +280,7 @@ fun AssistantMessage(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = message.error ?: "任务失败",
+                        text = message.error ?: stringResource(R.string.task_failed),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -287,7 +289,7 @@ fun AssistantMessage(
 
             if (message.status == MessageStatus.CANCELLED) {
                 Text(
-                    text = "已中断",
+                    text = stringResource(R.string.task_interrupted),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
@@ -302,7 +304,7 @@ fun AssistantMessage(
                     ) {
                         Icon(
                             Icons.Rounded.ContentCopy,
-                            contentDescription = "复制",
+                            contentDescription = stringResource(R.string.copy),
                             modifier = Modifier.size(15.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -312,7 +314,7 @@ fun AssistantMessage(
                             Spacer(Modifier.width(2.dp))
                             Text(
                                 text = "${usage.totalTokens} tokens" +
-                                    if (usage.cacheReadTokens > 0) " · 缓存 ${usage.cacheReadTokens}" else "",
+                                    if (usage.cacheReadTokens > 0) " " + stringResource(R.string.cache_tokens, usage.cacheReadTokens) else "",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.outline,
                             )
@@ -350,7 +352,7 @@ fun ToolCallsSection(events: List<ToolEvent>) {
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                text = "工具调用 (${events.size})",
+                text = stringResource(R.string.tool_calls_count, events.size),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
@@ -485,7 +487,7 @@ fun EmptyChatHint(
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "发起一个任务，然后放心关掉应用。\n完成后会通知你，回来就能看到完整结果。",
+            text = stringResource(R.string.chat_welcome_desc),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

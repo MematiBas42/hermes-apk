@@ -48,6 +48,7 @@ data class AppSettings(
     val jobsPushTopic: String = "",
     /** Optional `Authorization: Bearer <token>` for the ntfy subscription. */
     val jobsPushToken: String = "",
+    val appLanguage: String = "system",
 ) {
     val isConfigured: Boolean
         get() = baseUrl.isNotBlank() && apiKey.isNotBlank()
@@ -161,7 +162,7 @@ class SettingsRepository @Inject constructor(
     suspend fun snapshot(): AppSettings = settings.first()
 
     // Update the volatile mirrors synchronously as well, so a request issued right after saving
-    // (e.g. "测试连接") can't race the DataStore -> flow -> cache round trip.
+    // (e.g. "Test Connection") can't race the DataStore -> flow -> cache round trip.
     suspend fun setBaseUrl(value: String) {
         val trimmed = value.trim()
         dataStore.edit { it[KEY_BASE_URL] = trimmed }
@@ -218,6 +219,10 @@ class SettingsRepository @Inject constructor(
         cachedJobsPushToken = trimmed
     }
 
+    suspend fun setAppLanguage(value: String) {
+        dataStore.edit { it[KEY_APP_LANGUAGE] = value }
+    }
+
     private fun Preferences.toSettings() = AppSettings(
         baseUrl = this[KEY_BASE_URL] ?: "",
         apiKey = secretCipher.decrypt(this[KEY_API_KEY] ?: ""),
@@ -232,6 +237,7 @@ class SettingsRepository @Inject constructor(
         jobsPushUrl = this[KEY_JOBS_PUSH_URL] ?: "",
         jobsPushTopic = this[KEY_JOBS_PUSH_TOPIC] ?: "",
         jobsPushToken = secretCipher.decrypt(this[KEY_JOBS_PUSH_TOKEN] ?: ""),
+        appLanguage = this[KEY_APP_LANGUAGE] ?: "system",
     )
 
     private companion object {
@@ -247,5 +253,6 @@ class SettingsRepository @Inject constructor(
         val KEY_JOBS_PUSH_URL = stringPreferencesKey("jobs_push_url")
         val KEY_JOBS_PUSH_TOPIC = stringPreferencesKey("jobs_push_topic")
         val KEY_JOBS_PUSH_TOKEN = stringPreferencesKey("jobs_push_token")
+        val KEY_APP_LANGUAGE = stringPreferencesKey("app_language")
     }
 }

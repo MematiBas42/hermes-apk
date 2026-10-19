@@ -96,7 +96,7 @@ class RunCompletionNotifier @Inject constructor(
 
     /**
      * A finished cron job. Deep-links into the run transcript session when we know it
-     * ([sessionId]), otherwise into the 定时任务 screen ([MainActivity.EXTRA_OPEN_JOBS]) —
+     * ([sessionId]), otherwise into the Jobs screen ([MainActivity.EXTRA_OPEN_JOBS]) —
      * `no_agent` script jobs never create a session.
      */
     fun notifyJob(

@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hermes.client.HermesApp
+import com.hermes.client.R
 import com.hermes.client.data.prefs.AppSettings
 import com.hermes.client.data.prefs.SettingsRepository
 import com.hermes.client.data.prefs.ThemeMode
@@ -65,6 +67,16 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.setDynamicColor(enabled) }
     }
 
+    fun setAppLanguage(tag: String) {
+        viewModelScope.launch { settingsRepository.setAppLanguage(tag) }
+        val localeList = if (tag.isBlank() || tag == "system") {
+            androidx.core.os.LocaleListCompat.getEmptyLocaleList()
+        } else {
+            androidx.core.os.LocaleListCompat.forLanguageTags(tag)
+        }
+        androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(localeList)
+    }
+
     fun setToolProgress(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setToolProgress(enabled) }
     }
@@ -120,7 +132,7 @@ class SettingsViewModel @Inject constructor(
                     )
                 }
                 .onFailure { error ->
-                    _test.value = ConnectionTest.Failure(error.message ?: "连接失败")
+                    _test.value = ConnectionTest.Failure(error.message ?: HermesApp.string(R.string.conn_failed_generic))
                 }
         }
     }

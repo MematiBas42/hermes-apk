@@ -21,17 +21,22 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -48,6 +53,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -57,6 +64,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.hermes.client.BuildConfig
+import com.hermes.client.R
 import com.hermes.client.data.prefs.ThemeMode
 
 @Composable
@@ -80,6 +88,7 @@ fun SettingsRoute(
         jobsPushToken = settings.jobsPushToken,
         themeMode = settings.themeMode,
         dynamicColor = settings.dynamicColor,
+        appLanguage = settings.appLanguage,
         systemInstructions = settings.systemInstructions,
         toolProgress = settings.toolProgress,
         assistantName = settings.assistantName,
@@ -91,6 +100,7 @@ fun SettingsRoute(
         onSaveInstructions = viewModel::saveSystemInstructions,
         onThemeMode = viewModel::setThemeMode,
         onDynamicColor = viewModel::setDynamicColor,
+        onAppLanguage = viewModel::setAppLanguage,
         onToolProgress = viewModel::setToolProgress,
         onAssistantName = viewModel::setAssistantName,
         onPickAvatar = { avatarPicker.launch("image/*") },
@@ -112,6 +122,7 @@ fun SettingsScreen(
     jobsPushToken: String,
     themeMode: ThemeMode,
     dynamicColor: Boolean,
+    appLanguage: String,
     systemInstructions: String,
     toolProgress: Boolean,
     assistantName: String,
@@ -123,6 +134,7 @@ fun SettingsScreen(
     onSaveInstructions: (String) -> Unit,
     onThemeMode: (ThemeMode) -> Unit,
     onDynamicColor: (Boolean) -> Unit,
+    onAppLanguage: (String) -> Unit,
     onToolProgress: (Boolean) -> Unit,
     onAssistantName: (String) -> Unit,
     onPickAvatar: () -> Unit,
@@ -144,10 +156,13 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("设置") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回")
+                        Icon(
+                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = stringResource(R.string.back),
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -165,13 +180,13 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            SectionTitle("服务器")
+            SectionTitle(stringResource(R.string.section_server))
             OutlinedTextField(
                 value = baseUrlField,
                 onValueChange = { baseUrlField = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Base URL") },
-                placeholder = { Text("https://example.com/hermes-api") },
+                label = { Text(stringResource(R.string.base_url)) },
+                placeholder = { Text(stringResource(R.string.base_url_placeholder)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
@@ -182,7 +197,7 @@ fun SettingsScreen(
                 value = apiKeyField,
                 onValueChange = { apiKeyField = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("API Key") },
+                label = { Text(stringResource(R.string.api_key)) },
                 singleLine = true,
                 visualTransformation = if (keyVisible) VisualTransformation.None
                 else PasswordVisualTransformation(),
@@ -199,7 +214,7 @@ fun SettingsScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
                     onClick = { onSaveConnection(baseUrlField, apiKeyField); onClearTest() },
-                ) { Text("保存") }
+                ) { Text(stringResource(R.string.save)) }
                 Button(
                     onClick = { onTestConnection(baseUrlField, apiKeyField) },
                 ) {
@@ -211,26 +226,29 @@ fun SettingsScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                     }
-                    Text("测试连接")
+                    Text(stringResource(R.string.test_connection))
                 }
             }
             when (test) {
                 is ConnectionTest.Success -> Column {
+                    val modelsStr = test.models.joinToString().ifBlank {
+                        stringResource(R.string.conn_success_no_models)
+                    }
                     Text(
-                        text = "✅ 连接成功，模型：" + test.models.joinToString().ifBlank { "(无)" },
+                        text = stringResource(R.string.conn_success, modelsStr),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
                     if (test.insecureUrl) {
                         Text(
-                            text = "⚠️ 当前使用明文 http，凭据与对话内容可能被窃听，建议使用 https。",
+                            text = stringResource(R.string.insecure_http_warning),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                         )
                     }
                 }
                 is ConnectionTest.Failure -> Text(
-                    text = "❌ ${test.message}",
+                    text = stringResource(R.string.conn_failure, test.message),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -242,7 +260,7 @@ fun SettingsScreen(
                 value = filesUrlField,
                 onValueChange = { filesUrlField = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("文件服务 Base URL") },
+                label = { Text(stringResource(R.string.files_base_url)) },
                 placeholder = { Text("https://example.com/hermes-files") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
@@ -251,23 +269,23 @@ fun SettingsScreen(
                 ),
             )
             Text(
-                text = "用于图片/文件双向传输，留空则自动从 Base URL 推导。",
+                text = stringResource(R.string.files_base_url_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Button(
                 onClick = { onSaveFilesBaseUrl(filesUrlField) },
                 enabled = filesUrlField != filesBaseUrl,
-            ) { Text("保存文件服务地址") }
+            ) { Text(stringResource(R.string.save_files_url)) }
 
             Spacer(Modifier.height(6.dp))
-            SectionTitle("定时任务推送（可选）")
+            SectionTitle(stringResource(R.string.section_jobs_push))
             OutlinedTextField(
                 value = jobsPushUrlField,
                 onValueChange = { jobsPushUrlField = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("ntfy 服务器地址") },
-                placeholder = { Text("https://ntfy.example.com（留停用）") },
+                label = { Text(stringResource(R.string.ntfy_url)) },
+                placeholder = { Text("https://ntfy.example.com") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
@@ -278,7 +296,7 @@ fun SettingsScreen(
                 value = jobsPushTopicField,
                 onValueChange = { jobsPushTopicField = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("订阅主题 (topic)") },
+                label = { Text(stringResource(R.string.ntfy_topic)) },
                 placeholder = { Text("hermes-jobs-xxx") },
                 singleLine = true,
             )
@@ -286,13 +304,12 @@ fun SettingsScreen(
                 value = jobsPushTokenField,
                 onValueChange = { jobsPushTokenField = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("访问令牌（可选）") },
+                label = { Text(stringResource(R.string.ntfy_token)) },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
             )
             Text(
-                text = "Hermes 自带 ntfy 平台插件：任务的「结果投递」填 ntfy:主题 即实时推送到这里" +
-                    "（应用打开时秒级收到，后台仍由 15 分钟对账兜底）。主题名请用随机串，等同访问凭据。",
+                text = stringResource(R.string.ntfy_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -302,12 +319,12 @@ fun SettingsScreen(
                 },
                 enabled = jobsPushUrlField != jobsPushUrl || jobsPushTopicField != jobsPushTopic ||
                     jobsPushTokenField != jobsPushToken,
-            ) { Text("保存推送设置") }
+            ) { Text(stringResource(R.string.save_jobs_push)) }
 
             Spacer(Modifier.height(6.dp))
-            SectionTitle("外观")
+            SectionTitle(stringResource(R.string.section_appearance))
             Text(
-                text = "主题",
+                text = stringResource(R.string.theme),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -319,9 +336,9 @@ fun SettingsScreen(
                         label = {
                             Text(
                                 when (mode) {
-                                    ThemeMode.SYSTEM -> "跟随系统"
-                                    ThemeMode.LIGHT -> "浅色"
-                                    ThemeMode.DARK -> "深色"
+                                    ThemeMode.SYSTEM -> stringResource(R.string.theme_system)
+                                    ThemeMode.LIGHT -> stringResource(R.string.theme_light)
+                                    ThemeMode.DARK -> stringResource(R.string.theme_dark)
                                 },
                             )
                         },
@@ -329,17 +346,83 @@ fun SettingsScreen(
                 }
             }
             SettingSwitch(
-                title = "动态取色 (Material You)",
-                subtitle = "Android 12+ 使用系统壁纸配色",
+                title = stringResource(R.string.dynamic_color),
+                subtitle = stringResource(R.string.dynamic_color_desc),
                 checked = dynamicColor,
                 onChange = onDynamicColor,
             )
 
             Spacer(Modifier.height(6.dp))
-            SectionTitle("对话")
+            SectionTitle(stringResource(R.string.section_language))
+            var languageExpanded by remember { mutableStateOf(false) }
+            val languageOptions = listOf(
+                "system" to stringResource(R.string.lang_system),
+                "zh-CN" to stringResource(R.string.lang_zh),
+                "en" to stringResource(R.string.lang_en),
+                "tr" to stringResource(R.string.lang_tr),
+            )
+            // Source of truth is AppCompat, not the DataStore mirror: the user can also change the
+            // language from Android Settings > Apps > Hermes > Language (locales_config.xml).
+            val effectiveLanguage = remember(appLanguage) { currentAppLanguageTag() }
+            val currentLanguageLabel = languageOptions.firstOrNull { it.first == effectiveLanguage }?.second
+                ?: stringResource(R.string.lang_system)
+
+            ExposedDropdownMenuBox(
+                expanded = languageExpanded,
+                onExpandedChange = { languageExpanded = it },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                OutlinedTextField(
+                    value = currentLanguageLabel,
+                    onValueChange = {},
+                    readOnly = true,
+                    singleLine = true,
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = languageExpanded)
+                    },
+                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                    modifier = Modifier
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        .fillMaxWidth(),
+                )
+                ExposedDropdownMenu(
+                    expanded = languageExpanded,
+                    onDismissRequest = { languageExpanded = false },
+                ) {
+                    languageOptions.forEach { (tag, label) ->
+                        val isSelected = effectiveLanguage == tag
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = label,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                )
+                            },
+                            leadingIcon = if (isSelected) {
+                                {
+                                    Icon(
+                                        Icons.Rounded.Check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            } else null,
+                            onClick = {
+                                onAppLanguage(tag)
+                                languageExpanded = false
+                            },
+                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(6.dp))
+            SectionTitle(stringResource(R.string.section_chat))
             SettingSwitch(
-                title = "显示工具调用进度",
-                subtitle = "展示 tool.started / tool.completed",
+                title = stringResource(R.string.tool_progress),
+                subtitle = stringResource(R.string.tool_progress_desc),
                 checked = toolProgress,
                 onChange = onToolProgress,
             )
@@ -347,18 +430,18 @@ fun SettingsScreen(
                 value = instructionsField,
                 onValueChange = { instructionsField = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("系统指令 (instructions)") },
-                placeholder = { Text("可选，作为每次任务的系统提示") },
+                label = { Text(stringResource(R.string.system_instructions)) },
+                placeholder = { Text(stringResource(R.string.system_instructions_desc)) },
                 minLines = 2,
                 maxLines = 6,
             )
             Button(
                 onClick = { onSaveInstructions(instructionsField) },
                 enabled = instructionsField != systemInstructions,
-            ) { Text("保存系统指令") }
+            ) { Text(stringResource(R.string.save_instructions)) }
 
             Spacer(Modifier.height(6.dp))
-            SectionTitle("助手")
+            SectionTitle(stringResource(R.string.section_assistant))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -390,18 +473,18 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Button(onClick = onPickAvatar) { Text("选择头像") }
+                    Button(onClick = onPickAvatar) { Text(stringResource(R.string.choose_avatar)) }
                     TextButton(
                         onClick = onClearAvatar,
                         enabled = assistantAvatarPath.isNotBlank(),
-                    ) { Text("恢复默认") }
+                    ) { Text(stringResource(R.string.reset_default)) }
                 }
             }
             OutlinedTextField(
                 value = assistantNameField,
                 onValueChange = { assistantNameField = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("助手名称") },
+                label = { Text(stringResource(R.string.assistant_name)) },
                 placeholder = { Text("Hermes") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -409,16 +492,16 @@ fun SettingsScreen(
             Button(
                 onClick = { onAssistantName(assistantNameField) },
                 enabled = assistantNameField.trim() != assistantName.trim(),
-            ) { Text("保存名称") }
+            ) { Text(stringResource(R.string.save_assistant_name)) }
 
             Spacer(Modifier.height(6.dp))
-            SectionTitle("关于")
+            SectionTitle(stringResource(R.string.section_about))
             Text(
                 text = "Hermes Android v${BuildConfig.VERSION_NAME}",
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                text = "使用 Hermes Runs API：异步发起、断线可恢复、完成即通知。",
+                text = stringResource(R.string.about_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -457,5 +540,17 @@ private fun SettingSwitch(
             )
         }
         Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+/** Maps the active per-app locale to one of the dropdown tags ("system" when none is set). */
+private fun currentAppLanguageTag(): String {
+    val locales = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales()
+    if (locales.isEmpty) return "system"
+    return when (locales[0]?.language) {
+        "zh" -> "zh-CN"
+        "en" -> "en"
+        "tr" -> "tr"
+        else -> "system"
     }
 }

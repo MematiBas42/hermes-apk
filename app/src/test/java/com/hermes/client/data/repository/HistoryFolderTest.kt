@@ -38,11 +38,11 @@ class HistoryFolderTest {
             kind = AttachmentKind.IMAGE,
         )
         val previous = listOf(
-            MessageEntity(sessionId = "s", role = MessageRole.USER.name, content = "看这个", attachments = listOf(attachment)),
+            MessageEntity(sessionId = "s", role = MessageRole.USER.name, content = "Look at this", attachments = listOf(attachment)),
         )
         val data = listOf(
-            ServerMessage(role = "user", content = JsonPrimitive("看这个")),
-            ServerMessage(role = "assistant", content = JsonPrimitive("好")),
+            ServerMessage(role = "user", content = JsonPrimitive("Look at this")),
+            ServerMessage(role = "assistant", content = JsonPrimitive("OK")),
         )
         val entities = HistoryFolder.fold("s", data, previous, now = 1L)
 

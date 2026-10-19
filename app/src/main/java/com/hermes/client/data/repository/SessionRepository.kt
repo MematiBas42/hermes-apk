@@ -1,5 +1,7 @@
 package com.hermes.client.data.repository
 
+import com.hermes.client.HermesApp
+import com.hermes.client.R
 import com.hermes.client.data.local.HermesDatabase
 import com.hermes.client.data.local.SessionEntity
 import com.hermes.client.data.model.ChatSession
@@ -28,11 +30,12 @@ class SessionRepository @Inject constructor(
 
     suspend fun get(id: String): ChatSession? = sessionDao.get(id)?.toDomain()
 
-    suspend fun create(title: String = "新会话"): String {
+    suspend fun create(title: String? = null): String {
+        val resolvedTitle = title ?: HermesApp.string(R.string.new_session_title).ifBlank { "New Session" }
         val now = System.currentTimeMillis()
         val id = "hm-" + UUID.randomUUID().toString().replace("-", "").take(24)
         sessionDao.upsert(
-            SessionEntity(id = id, title = title, createdAt = now, updatedAt = now),
+            SessionEntity(id = id, title = resolvedTitle, createdAt = now, updatedAt = now),
         )
         return id
     }
@@ -40,13 +43,14 @@ class SessionRepository @Inject constructor(
     suspend fun ensure(id: String): String {
         if (sessionDao.get(id) == null) {
             val now = System.currentTimeMillis()
-            sessionDao.upsert(SessionEntity(id = id, title = "新会话", createdAt = now, updatedAt = now))
+            val title = HermesApp.string(R.string.new_session_title).ifBlank { "New Session" }
+            sessionDao.upsert(SessionEntity(id = id, title = title, createdAt = now, updatedAt = now))
         }
         return id
     }
 
     suspend fun rename(id: String, title: String) {
-        val clean = title.trim().ifBlank { "未命名会话" }
+        val clean = title.trim().ifBlank { HermesApp.string(R.string.untitled_session).ifBlank { "Untitled Session" } }
         sessionDao.rename(id, clean, System.currentTimeMillis())
     }
 
@@ -69,7 +73,7 @@ class SessionRepository @Inject constructor(
      * unless it is still the default, so a local rename is not clobbered. Returns the count merged.
      *
      * Cron-run transcripts (`source == "cron"`, id `cron_{job_id}_{ts}`) are deliberately kept
-     * OUT of the conversation list — they belong to the 定时任务 screen, which links into them
+     * OUT of the conversation list — they belong to the Jobs screen, which links into them
      * directly. Any that an older sync leaked into the local table are cleaned up here.
      */
     suspend fun syncAll(): Result<Int> = withContext(Dispatchers.IO) {
@@ -95,7 +99,9 @@ class SessionRepository @Inject constructor(
                     val startedAt = ((server.startedAt ?: 0.0) * 1000).toLong().takeIf { it > 0 } ?: now
                     val lastActive = ((server.lastActive ?: server.startedAt ?: 0.0) * 1000).toLong()
                         .takeIf { it > 0 } ?: startedAt
-                    val serverTitle = server.title?.trim().orEmpty().ifBlank { "新会话" }
+                    val defaultTitles = setOf("新会话", "New Session", "Yeni Oturum")
+                    val defaultTitle = HermesApp.string(R.string.new_session_title).ifBlank { "New Session" }
+                    val serverTitle = server.title?.trim().orEmpty().ifBlank { defaultTitle }
                     val preview = server.preview?.trim().orEmpty()
                     val existing = sessionDao.get(server.id)
                     if (existing == null) {
@@ -109,7 +115,7 @@ class SessionRepository @Inject constructor(
                             ),
                         )
                     } else {
-                        val title = if (existing.title.isBlank() || existing.title == "新会话") {
+                        val title = if (existing.title.isBlank() || existing.title in defaultTitles) {
                             serverTitle
                         } else {
                             existing.title

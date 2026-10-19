@@ -3,6 +3,7 @@ package com.hermes.client
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
+import androidx.core.content.ContextCompat
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import coil.ImageLoader
@@ -33,6 +34,7 @@ class HermesApp : Application(), Configuration.Provider, ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
             override fun onActivityStarted(activity: Activity) {
                 val wasBackground = !appVisibility.isForeground
@@ -54,5 +56,16 @@ class HermesApp : Application(), Configuration.Provider, ImageLoaderFactory {
         runCatching { ntfyPush.start() }
         // Fallback polling so notifications still land while the app is killed.
         runCatching { workScheduler.ensurePeriodicReconcile() }
+    }
+
+    companion object {
+        lateinit var instance: HermesApp
+            private set
+
+        fun string(@androidx.annotation.StringRes resId: Int, vararg formatArgs: Any?): String =
+            if (::instance.isInitialized) {
+                val ctx = ContextCompat.getContextForLanguage(instance)
+                if (formatArgs.isEmpty()) ctx.getString(resId) else ctx.getString(resId, *formatArgs)
+            } else ""
     }
 }

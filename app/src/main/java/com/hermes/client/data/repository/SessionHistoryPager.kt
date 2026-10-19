@@ -9,10 +9,10 @@ import com.hermes.client.data.remote.dto.ServerMessage
  * Why this exists: the server caps `GET /api/sessions/{id}/messages` at 500 rows per response, and
  * (verified live, hermes `api_server.py`) a request with an explicit `limit` but no `order` is
  * served the **oldest** window (`pagination.order == "oldest"`). Hermes persists one row per tool
- * call/result, so an agent task easily exceeds 500 rows — e.g. `查找pikpak转存夸克盘文档` has 536
+ * call/result, so an agent task easily exceeds 500 rows — e.g. a long multi-tool task has 536
  * rows. The old single-shot `limit=500` fetch therefore returned rows 1–500, and the
  * "server is authoritative" replace **deleted the newest 36 turns locally** (final answer
- * included). Symptom: 偶发同步消息后最新对话消失 — only long, tool-heavy sessions hit the cap.
+ * included). Symptom: newest messages disappearing after sync — only long, tool-heavy sessions hit the cap.
  *
  * Strategy: page with `order=latest` (offset 0 = newest window) until a page comes back short,
  * then re-assemble the pages in chronological order. If the transcript exceeds [MAX_PAGES] rows we

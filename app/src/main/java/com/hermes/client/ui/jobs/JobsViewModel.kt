@@ -2,7 +2,9 @@ package com.hermes.client.ui.jobs
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hermes.client.HermesApp
 import com.hermes.client.JobsVisibility
+import com.hermes.client.R
 import com.hermes.client.data.model.CronJob
 import com.hermes.client.data.prefs.SettingsRepository
 import com.hermes.client.data.repository.ChatRepository
@@ -58,11 +60,16 @@ class JobsViewModel @Inject constructor(
                 jobsRepository.sync(notify = false).fold(
                     onSuccess = { count ->
                         if (!silent) {
-                            _events.tryEmit(if (count == 0) "服务器上还没有定时任务" else "已同步 $count 个任务")
+                            _events.tryEmit(
+                                if (count == 0) HermesApp.string(R.string.jobs_none_to_sync)
+                                else HermesApp.string(R.string.jobs_synced_count, count)
+                            )
                         }
                     },
                     onFailure = { error ->
-                        if (!silent) _events.tryEmit("同步失败：${error.message ?: "网络错误"}")
+                        if (!silent) _events.tryEmit(
+                            HermesApp.string(R.string.sync_failed, error.message ?: HermesApp.string(R.string.network_error))
+                        )
                     },
                 )
             } finally {
@@ -74,8 +81,8 @@ class JobsViewModel @Inject constructor(
     fun create(name: String, schedule: String, prompt: String, deliver: String) {
         viewModelScope.launch {
             jobsRepository.create(name, schedule, prompt, deliver).fold(
-                onSuccess = { _events.tryEmit("已创建「${name.trim()}」，等待首次调度") },
-                onFailure = { _events.tryEmit("创建失败：${it.message ?: "网络错误"}") },
+                onSuccess = { _events.tryEmit(HermesApp.string(R.string.job_created_waiting, name.trim())) },
+                onFailure = { _events.tryEmit(HermesApp.string(R.string.job_create_failed, it.message ?: HermesApp.string(R.string.network_error))) },
             )
         }
     }
@@ -93,18 +100,18 @@ class JobsViewModel @Inject constructor(
                 prompt = prompt.ifBlank { original.prompt }.takeIf { it != original.prompt },
                 deliver = deliver.ifBlank { original.deliver }.takeIf { it != original.deliver },
             ).fold(
-                onSuccess = { _events.tryEmit("已保存") },
-                onFailure = { _events.tryEmit("保存失败：${it.message ?: "网络错误"}") },
+                onSuccess = { _events.tryEmit(HermesApp.string(R.string.saved)) },
+                onFailure = { _events.tryEmit(HermesApp.string(R.string.save_failed, it.message ?: HermesApp.string(R.string.network_error))) },
             )
         }
     }
 
-    /** One-tap repair for jobs still delivering to a retired platform (e.g. 微信网关). */
+    /** One-tap repair for jobs still delivering to a retired platform (e.g. WeChat gateway). */
     fun setDeliverLocal(job: CronJob) {
         viewModelScope.launch {
             jobsRepository.setDeliverLocal(job.id).fold(
-                onSuccess = { _events.tryEmit("「${job.name}」的结果投递已改为本机存档（local）") },
-                onFailure = { _events.tryEmit("修改投递失败：${it.message ?: "网络错误"}") },
+                onSuccess = { _events.tryEmit(HermesApp.string(R.string.job_deliver_changed_local, job.name)) },
+                onFailure = { _events.tryEmit(HermesApp.string(R.string.job_deliver_change_failed, it.message ?: HermesApp.string(R.string.network_error))) },
             )
         }
     }
@@ -112,8 +119,8 @@ class JobsViewModel @Inject constructor(
     fun pause(id: String) {
         viewModelScope.launch {
             jobsRepository.pause(id).fold(
-                onSuccess = { _events.tryEmit("已暂停"); sync(silent = true) },
-                onFailure = { _events.tryEmit("暂停失败：${it.message ?: "网络错误"}") },
+                onSuccess = { _events.tryEmit(HermesApp.string(R.string.job_paused_msg)); sync(silent = true) },
+                onFailure = { _events.tryEmit(HermesApp.string(R.string.job_pause_failed, it.message ?: HermesApp.string(R.string.network_error))) },
             )
         }
     }
@@ -121,8 +128,8 @@ class JobsViewModel @Inject constructor(
     fun resume(id: String) {
         viewModelScope.launch {
             jobsRepository.resume(id).fold(
-                onSuccess = { _events.tryEmit("已恢复"); sync(silent = true) },
-                onFailure = { _events.tryEmit("恢复失败：${it.message ?: "网络错误"}") },
+                onSuccess = { _events.tryEmit(HermesApp.string(R.string.job_resumed_msg)); sync(silent = true) },
+                onFailure = { _events.tryEmit(HermesApp.string(R.string.job_resume_failed, it.message ?: HermesApp.string(R.string.network_error))) },
             )
         }
     }
@@ -131,12 +138,12 @@ class JobsViewModel @Inject constructor(
         viewModelScope.launch {
             jobsRepository.runNow(id).fold(
                 onSuccess = {
-                    _events.tryEmit("已触发，网关调度器将在 1 分钟内执行")
+                    _events.tryEmit(HermesApp.string(R.string.job_triggered_msg))
                     // The scheduler ticks every 60s; pick up the execution shortly after.
                     kotlinx.coroutines.delay(70_000)
                     sync(silent = true)
                 },
-                onFailure = { _events.tryEmit("触发失败：${it.message ?: "网络错误"}") },
+                onFailure = { _events.tryEmit(HermesApp.string(R.string.job_trigger_failed, it.message ?: HermesApp.string(R.string.network_error))) },
             )
         }
     }
@@ -144,8 +151,8 @@ class JobsViewModel @Inject constructor(
     fun delete(id: String) {
         viewModelScope.launch {
             jobsRepository.delete(id).fold(
-                onSuccess = { _events.tryEmit("已删除") },
-                onFailure = { _events.tryEmit("删除失败：${it.message ?: "网络错误"}") },
+                onSuccess = { _events.tryEmit(HermesApp.string(R.string.deleted)) },
+                onFailure = { _events.tryEmit(HermesApp.string(R.string.delete_failed, it.message ?: HermesApp.string(R.string.network_error))) },
             )
         }
     }
@@ -161,8 +168,8 @@ class JobsViewModel @Inject constructor(
             val sessionId = job.lastSessionId ?: jobsRepository.latestSessionFor(job.id)
             if (sessionId == null) {
                 _events.tryEmit(
-                    if (job.noAgent) "脚本任务不产生对话记录，结果只走投递通道"
-                    else "该任务还没有可查看的执行记录",
+                    if (job.noAgent) HermesApp.string(R.string.job_script_no_chat)
+                    else HermesApp.string(R.string.job_no_records_yet),
                 )
                 return@launch
             }

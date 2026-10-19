@@ -55,11 +55,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hermes.client.R
 import com.hermes.client.data.model.ChatSession
 import com.hermes.client.ui.util.formatRelativeTime
 
@@ -131,14 +133,23 @@ fun SessionListScreen(
                                 strokeWidth = 2.dp,
                             )
                         } else {
-                            Icon(Icons.Rounded.Sync, contentDescription = "同步全部会话")
+                            Icon(
+                                Icons.Rounded.Sync,
+                                contentDescription = stringResource(R.string.sync_all_sessions),
+                            )
                         }
                     }
                     IconButton(onClick = onOpenJobs) {
-                        Icon(Icons.Rounded.Schedule, contentDescription = "定时任务")
+                        Icon(
+                            Icons.Rounded.Schedule,
+                            contentDescription = stringResource(R.string.nav_jobs),
+                        )
                     }
                     IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Rounded.Settings, contentDescription = "设置")
+                        Icon(
+                            Icons.Rounded.Settings,
+                            contentDescription = stringResource(R.string.nav_settings),
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -151,7 +162,7 @@ fun SessionListScreen(
             ExtendedFloatingActionButton(
                 onClick = onNewSession,
                 icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
-                text = { Text("新会话") },
+                text = { Text(stringResource(R.string.nav_new_session)) },
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -197,15 +208,15 @@ fun SessionListScreen(
     deleteTarget?.let { target ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
-            title = { Text("删除会话") },
-            text = { Text("确定删除「${target.title}」？本机与服务器上的记录都会被移除。") },
+            title = { Text(stringResource(R.string.delete_session)) },
+            text = { Text(stringResource(R.string.delete_session_confirm, target.title)) },
             confirmButton = {
                 TextButton(onClick = { onDelete(target.id); deleteTarget = null }) {
-                    Text("删除", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { deleteTarget = null }) { Text("取消") }
+                TextButton(onClick = { deleteTarget = null }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }
@@ -267,7 +278,7 @@ private fun SessionCard(
                 }
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    text = session.preview.ifBlank { "尚无消息" },
+                    text = session.preview.ifBlank { stringResource(R.string.no_messages) },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -285,18 +296,18 @@ private fun SessionCard(
                     IconButton(onClick = onLongPress) {
                         Icon(
                             Icons.Rounded.MoreVert,
-                            contentDescription = "更多",
+                            contentDescription = stringResource(R.string.more),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     DropdownMenu(expanded = menuExpanded, onDismissRequest = onMenuDismiss) {
                         DropdownMenuItem(
-                            text = { Text("重命名") },
+                            text = { Text(stringResource(R.string.rename)) },
                             leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
                             onClick = onRename,
                         )
                         DropdownMenuItem(
-                            text = { Text("删除") },
+                            text = { Text(stringResource(R.string.delete)) },
                             leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
                             onClick = onDelete,
                         )
@@ -329,18 +340,18 @@ private fun SetupBanner(onOpenSettings: () -> Unit) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "先配置服务器",
+                text = stringResource(R.string.setup_server_title),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "填写 Hermes API 的 Base URL 与 API Key 后即可开始对话。",
+                text = stringResource(R.string.setup_server_desc),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
             )
             Spacer(Modifier.height(10.dp))
-            TextButton(onClick = onOpenSettings) { Text("前往设置") }
+            TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.go_to_settings)) }
         }
     }
 }
@@ -357,13 +368,13 @@ private fun EmptyState() {
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "还没有会话",
+                text = stringResource(R.string.no_sessions_title),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "点击右下角开始与 Hermes 对话",
+                text = stringResource(R.string.no_sessions_desc),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.outline,
             )
@@ -380,20 +391,20 @@ private fun RenameDialog(
     var value by remember { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("重命名会话") },
+        title = { Text(stringResource(R.string.rename_session)) },
         text = {
             OutlinedTextField(
                 value = value,
                 onValueChange = { value = it },
                 singleLine = true,
-                label = { Text("会话名称") },
+                label = { Text(stringResource(R.string.session_name)) },
             )
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(value) }) { Text("保存") }
+            TextButton(onClick = { onConfirm(value) }) { Text(stringResource(R.string.save)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
     )
 }

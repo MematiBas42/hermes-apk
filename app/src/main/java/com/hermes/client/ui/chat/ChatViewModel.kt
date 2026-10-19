@@ -8,6 +8,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hermes.client.ChatVisibility
+import com.hermes.client.HermesApp
+import com.hermes.client.R
 import com.hermes.client.data.model.Attachment
 import com.hermes.client.data.model.AttachmentKind
 import com.hermes.client.data.model.ChatMessage
@@ -73,8 +75,19 @@ class ChatViewModel @Inject constructor(
     private val _attachments = MutableStateFlow<List<Attachment>>(emptyList())
     val attachments: StateFlow<List<Attachment>> = _attachments
 
-    private val _commands = MutableStateFlow(DEFAULT_COMMANDS)
-    val commands: StateFlow<List<CommandDto>> = _commands
+    /** Server-provided slash commands; null until fetched (then [defaultCommands] apply). */
+    private val _remoteCommands = MutableStateFlow<List<CommandDto>?>(null)
+    val remoteCommands: StateFlow<List<CommandDto>?> = _remoteCommands
+
+    /**
+     * Built-in fallback commands. A function (not a cached val) so descriptions are resolved
+     * with the current per-app language every time the UI asks, including after a language
+     * switch that recreates the Activity but keeps this ViewModel and the process alive.
+     */
+    fun defaultCommands(): List<CommandDto> = listOf(
+        CommandDto(name = "help", description = HermesApp.string(R.string.cmd_help_desc), template = "/help"),
+        CommandDto(name = "status", description = HermesApp.string(R.string.cmd_status_desc), template = "/status"),
+    )
 
     private val _events = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val events: SharedFlow<String> = _events.asSharedFlow()
@@ -148,7 +161,7 @@ class ChatViewModel @Inject constructor(
     fun send() {
         // One run at a time per session: the server steps on the same agent loop otherwise.
         if (isRunning.value) {
-            emitError("已有任务进行中，请先停止再发送")
+            emitError(HermesApp.string(R.string.task_in_progress))
             return
         }
         val text = _input.value.trim()
@@ -162,7 +175,7 @@ class ChatViewModel @Inject constructor(
     /** Send a recorded voice note as a real audio attachment (Hermes transcribes it server-side). */
     fun sendVoice(file: java.io.File) {
         if (isRunning.value) {
-            emitError("已有任务进行中，请先停止再发送")
+            emitError(HermesApp.string(R.string.task_in_progress))
             return
         }
         val attachment = Attachment(
@@ -174,7 +187,7 @@ class ChatViewModel @Inject constructor(
             kind = AttachmentKind.FILE,
         )
         launchSubmit {
-            chatRepository.sendMessage(sessionId, "🎤 语音消息", listOf(attachment))
+            chatRepository.sendMessage(sessionId, HermesApp.string(R.string.voice_message_placeholder), listOf(attachment))
                 .also { if (it.isSuccess) file.delete() }
         }
     }
@@ -184,7 +197,7 @@ class ChatViewModel @Inject constructor(
         if (runId != null) {
             viewModelScope.launch {
                 runManager.stop(runId).onFailure {
-                    emitError("中断请求未送达：${it.message ?: "网络错误"}（任务仍在服务端运行）")
+                    emitError(HermesApp.string(R.string.stop_request_failed, it.message ?: HermesApp.string(R.string.network_error)))
                 }
             }
             return
@@ -201,10 +214,10 @@ class ChatViewModel @Inject constructor(
             when {
                 lateRunId != null ->
                     runManager.stop(lateRunId).onFailure {
-                        emitError("中断请求未送达：${it.message ?: "网络错误"}（任务仍在服务端运行）")
+                        emitError(HermesApp.string(R.string.stop_request_failed, it.message ?: HermesApp.string(R.string.network_error)))
                     }
 
-                cleared > 0 -> emitError("已取消未发出的消息")
+                cleared > 0 -> emitError(HermesApp.string(R.string.msg_cancelled))
             }
         }
     }
@@ -217,8 +230,8 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             val result = chatRepository.fetchHistory(sessionId)
             result.fold(
-                onSuccess = { _events.tryEmit(if (it == 0) "服务端暂无历史" else "已同步 $it 条历史") },
-                onFailure = { emitError(it.message ?: "同步失败") },
+                onSuccess = { _events.tryEmit(if (it == 0) HermesApp.string(R.string.history_none) else HermesApp.string(R.string.history_synced_count, it)) },
+                onFailure = { emitError(it.message ?: HermesApp.string(R.string.sync_failed_generic)) },
             )
         }
     }
@@ -226,7 +239,7 @@ class ChatViewModel @Inject constructor(
     fun refreshCommands() {
         viewModelScope.launch {
             val remote = fileService.commands()
-            if (remote.isNotEmpty()) _commands.value = remote
+            if (remote.isNotEmpty()) _remoteCommands.value = remote
         }
     }
 
@@ -238,7 +251,7 @@ class ChatViewModel @Inject constructor(
                 // content://, intent://…) to ACTION_VIEW just widens the attack surface.
                 val scheme = Uri.parse(url).scheme?.lowercase()
                 if (scheme != "http" && scheme != "https") {
-                    emitError("仅支持打开 http/https 链接")
+                    emitError(HermesApp.string(R.string.only_http_supported))
                     return@launch
                 }
                 runCatching {
@@ -246,13 +259,13 @@ class ChatViewModel @Inject constructor(
                         Intent(Intent.ACTION_VIEW, Uri.parse(url))
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                     )
-                }.onFailure { emitError("无法打开链接") }
+                }.onFailure { emitError(HermesApp.string(R.string.unable_to_open_link)) }
                 return@launch
             }
-            _events.tryEmit("正在下载文件…")
+            _events.tryEmit(HermesApp.string(R.string.downloading_file))
             val file = fileService.downloadToCache(url, name)
             if (file == null) {
-                emitError("下载失败")
+                emitError(HermesApp.string(R.string.download_failed))
                 return@launch
             }
             val uri = FileProvider.getUriForFile(
@@ -264,10 +277,10 @@ class ChatViewModel @Inject constructor(
                 setDataAndType(uri, context.contentResolver.getType(uri) ?: "*/*")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            val chooser = Intent.createChooser(intent, "打开文件")
+            val chooser = Intent.createChooser(intent, HermesApp.string(R.string.open_file))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             runCatching { context.startActivity(chooser) }
-                .onFailure { emitError("没有可打开该文件的应用") }
+                .onFailure { emitError(HermesApp.string(R.string.no_app_to_open_file)) }
         }
     }
 
@@ -283,7 +296,7 @@ class ChatViewModel @Inject constructor(
     private fun launchSubmit(block: suspend () -> Result<String>) {
         submitJob?.cancel()
         submitJob = viewModelScope.launch {
-            block().exceptionOrNull()?.let { emitError(it.message ?: "发送失败") }
+            block().exceptionOrNull()?.let { emitError(it.message ?: HermesApp.string(R.string.send_failed)) }
         }
     }
 
@@ -293,12 +306,5 @@ class ChatViewModel @Inject constructor(
 
     private fun emitError(message: String) {
         _events.tryEmit(message)
-    }
-
-    private companion object {
-        val DEFAULT_COMMANDS = listOf(
-            CommandDto(name = "help", description = "显示可用命令", template = "/help"),
-            CommandDto(name = "status", description = "显示当前会话状态", template = "/status"),
-        )
     }
 }

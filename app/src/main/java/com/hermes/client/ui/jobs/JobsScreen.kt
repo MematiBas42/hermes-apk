@@ -60,11 +60,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hermes.client.R
 import com.hermes.client.data.model.CronJob
 import com.hermes.client.ui.util.formatRelativeTime
 
@@ -138,14 +141,14 @@ fun JobsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "定时任务",
+                        text = stringResource(R.string.jobs_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
@@ -156,7 +159,7 @@ fun JobsScreen(
                                 strokeWidth = 2.dp,
                             )
                         } else {
-                            Icon(Icons.Rounded.Sync, contentDescription = "同步任务列表")
+                            Icon(Icons.Rounded.Sync, contentDescription = stringResource(R.string.sync_jobs))
                         }
                     }
                 },
@@ -170,7 +173,7 @@ fun JobsScreen(
             ExtendedFloatingActionButton(
                 onClick = { editorTarget = null; editorOpen = true },
                 icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
-                text = { Text("新建任务") },
+                text = { Text(stringResource(R.string.new_job)) },
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -186,13 +189,13 @@ fun JobsScreen(
                     )
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        text = "还没有定时任务",
+                        text = stringResource(R.string.no_jobs_title),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "让 Hermes 按计划自动执行任务并推送结果",
+                        text = stringResource(R.string.no_jobs_desc),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.outline,
                     )
@@ -245,15 +248,15 @@ fun JobsScreen(
     deleteTarget?.let { target ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
-            title = { Text("删除定时任务") },
-            text = { Text("确定删除「${target.name}」？服务器上的任务与其计划将被移除。") },
+            title = { Text(stringResource(R.string.delete_job_title)) },
+            text = { Text(stringResource(R.string.delete_job_confirm, target.name)) },
             confirmButton = {
                 TextButton(onClick = { onDelete(target.id); deleteTarget = null }) {
-                    Text("删除", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { deleteTarget = null }) { Text("取消") }
+                TextButton(onClick = { deleteTarget = null }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }
@@ -340,10 +343,10 @@ private fun JobCard(
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = when {
-                        job.isFinished -> "已完成"
-                        job.paused -> "已暂停"
-                        job.nextRunAt > 0 -> "下次 " + formatRelativeTime(job.nextRunAt).removePrefix("刚刚")
-                            .ifBlank { "即将执行" }
+                        job.isFinished -> stringResource(R.string.job_finished)
+                        job.paused -> stringResource(R.string.job_paused)
+                        job.nextRunAt > 0 -> stringResource(R.string.job_next_prefix) + " " + formatRelativeTime(job.nextRunAt).removePrefix(stringResource(R.string.time_just_now))
+                            .ifBlank { stringResource(R.string.job_imminent) }
                         else -> ""
                     },
                     style = MaterialTheme.typography.labelMedium,
@@ -354,40 +357,40 @@ private fun JobCard(
                     IconButton(onClick = onLongPress) {
                         Icon(
                             Icons.Rounded.MoreVert,
-                            contentDescription = "更多",
+                            contentDescription = stringResource(R.string.more),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     DropdownMenu(expanded = menuExpanded, onDismissRequest = onMenuDismiss) {
                         DropdownMenuItem(
-                            text = { Text(if (job.noAgent) "查看执行记录" else "查看最新结果") },
+                            text = { Text(if (job.noAgent) stringResource(R.string.job_view_records) else stringResource(R.string.job_view_latest)) },
                             leadingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = null) },
                             onClick = onOpenResult,
                         )
                         DropdownMenuItem(
-                            text = { Text("立即运行") },
+                            text = { Text(stringResource(R.string.job_run_now)) },
                             leadingIcon = { Icon(Icons.Rounded.PlayArrow, contentDescription = null) },
                             onClick = onRunNow,
                         )
                         DropdownMenuItem(
-                            text = { Text(if (job.paused) "恢复" else "暂停") },
+                            text = { Text(if (job.paused) stringResource(R.string.job_resume) else stringResource(R.string.job_pause)) },
                             leadingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = null) },
                             onClick = onTogglePause,
                         )
                         if (job.deliver != "local") {
                             DropdownMenuItem(
-                                text = { Text("投递改为本机（local）") },
+                                text = { Text(stringResource(R.string.job_deliver_local)) },
                                 leadingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = null) },
                                 onClick = onSetDeliverLocal,
                             )
                         }
                         DropdownMenuItem(
-                            text = { Text("编辑") },
+                            text = { Text(stringResource(R.string.edit)) },
                             leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
                             onClick = onEdit,
                         )
                         DropdownMenuItem(
-                            text = { Text("删除") },
+                            text = { Text(stringResource(R.string.delete)) },
                             leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
                             onClick = onDelete,
                         )
@@ -400,15 +403,15 @@ private fun JobCard(
 
 @Composable
 private fun StatusChip(job: CronJob) {
-    // 执行与投递是两回事：delivery_failed = 任务跑成功了、只是推送没送到，不该标红。
+    // Execution vs delivery: delivery_failed = run succeeded, only push failed
     val (label, container, content) = when {
-        job.isFinished -> Triple("已结束", MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurfaceVariant)
+        job.isFinished -> Triple(stringResource(R.string.job_ended), MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurfaceVariant)
         job.lastStatus == "error" || job.lastStatus == "blocked_config" ->
-            Triple(if (job.lastStatus == "blocked_config") "配置受阻" else "执行失败", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
+            Triple(if (job.lastStatus == "blocked_config") stringResource(R.string.job_config_blocked) else stringResource(R.string.job_exec_failed), MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
         job.lastStatus == "delivery_failed" ->
-            Triple("推送失败", MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurfaceVariant)
-        job.paused -> Triple("已暂停", MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurfaceVariant)
-        else -> Triple(if (job.noAgent) "脚本" else "运行中", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
+            Triple(stringResource(R.string.job_delivery_failed), MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurfaceVariant)
+        job.paused -> Triple(stringResource(R.string.job_paused), MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurfaceVariant)
+        else -> Triple(if (job.noAgent) stringResource(R.string.job_script) else stringResource(R.string.job_running), MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
     }
     AssistChip(
         onClick = {},
@@ -422,27 +425,28 @@ private fun StatusChip(job: CronJob) {
     )
 }
 
+@Composable
 private fun lastRunLine(job: CronJob): String {
-    if (job.lastRunAt <= 0 && job.lastStatus == null) return "尚未执行过"
-    val when_ = formatRelativeTime(job.lastRunAt).ifBlank { "刚刚" }
+    if (job.lastRunAt <= 0 && job.lastStatus == null) return stringResource(R.string.job_not_run_yet)
+    val when_ = formatRelativeTime(job.lastRunAt).ifBlank { stringResource(R.string.time_just_now) }
+    val prefix = stringResource(R.string.job_last_run_prefix, when_) + " "
     return when (job.lastStatus) {
-        "ok", null -> "上次执行 $when_ · 成功"
-        "error" -> "上次执行 $when_ · 失败：${(job.lastError ?: "未知错误").take(80)}"
-        // The run succeeded and the transcript is intact — only the push notification failed
-        // (typically a retired delivery platform such as an unused 微信网关).
-        "delivery_failed" -> "上次执行 $when_ · 执行成功，结果推送未送达（${job.deliver}）"
-        "blocked_config" -> "配置校验未通过，未执行：${(job.lastError ?: "").take(60)}"
-        else -> "上次执行 $when_ · ${job.lastStatus}"
+        "ok", null -> prefix + stringResource(R.string.job_status_success)
+        "error" -> prefix + stringResource(R.string.job_status_failure, (job.lastError ?: "").take(80))
+        "delivery_failed" -> prefix + stringResource(R.string.job_status_delivery_failed, job.deliver)
+        "blocked_config" -> stringResource(R.string.job_status_blocked_config, (job.lastError ?: "").take(60))
+        else -> prefix + job.lastStatus
     }
 }
 
 /** Quick schedule presets; Hermes accepts natural language, intervals and cron expressions. */
-private val SCHEDULE_PRESETS = listOf(
-    "every 1h" to "每小时",
-    "every 6h" to "每 6 小时",
-    "every day at 9:00" to "每天 9 点",
-    "0 */2 * * *" to "每 2 小时 (cron)",
-    "in 30m" to "30 分钟后一次",
+@Composable
+private fun getSchedulePresets() = listOf(
+    "every 1h" to stringResource(R.string.sched_every_1h),
+    "every 6h" to stringResource(R.string.sched_every_6h),
+    "every day at 9:00" to stringResource(R.string.sched_every_day_9am),
+    "0 */2 * * *" to stringResource(R.string.sched_every_2h_cron),
+    "in 30m" to stringResource(R.string.sched_in_30m),
 )
 
 @Composable
@@ -455,10 +459,11 @@ private fun JobEditorDialog(
     var schedule by remember { mutableStateOf(initial?.schedule ?: "every day at 9:00") }
     var prompt by remember { mutableStateOf(initial?.prompt ?: "") }
     var deliver by remember { mutableStateOf(initial?.deliver ?: "local") }
+    val presets = getSchedulePresets()
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "新建定时任务" else "编辑定时任务") },
+        title = { Text(if (initial == null) stringResource(R.string.create_job) else stringResource(R.string.edit_job)) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -468,17 +473,17 @@ private fun JobEditorDialog(
                     value = name,
                     onValueChange = { name = it },
                     singleLine = true,
-                    label = { Text("任务名称") },
+                    label = { Text(stringResource(R.string.job_name)) },
                 )
                 OutlinedTextField(
                     value = schedule,
                     onValueChange = { schedule = it },
                     singleLine = true,
-                    label = { Text("计划（自然语言或 cron）") },
-                    supportingText = { Text("例：every 2h / every day at 9am / 0 9 * * 1-5 / in 30m") },
+                    label = { Text(stringResource(R.string.job_schedule)) },
+                    supportingText = { Text(stringResource(R.string.job_schedule_hint)) },
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SCHEDULE_PRESETS.take(3).forEach { (value, label) ->
+                    presets.take(3).forEach { (value, label) ->
                         FilterChip(
                             selected = schedule == value,
                             onClick = { schedule = value },
@@ -489,17 +494,17 @@ private fun JobEditorDialog(
                 OutlinedTextField(
                     value = prompt,
                     onValueChange = { prompt = it },
-                    label = { Text("任务提示词") },
+                    label = { Text(stringResource(R.string.job_prompt)) },
                     minLines = 3,
-                    supportingText = { Text("自包含描述：定时任务在全新会话中运行，看不到当前对话") },
+                    supportingText = { Text(stringResource(R.string.job_prompt_hint)) },
                 )
                 OutlinedTextField(
                     value = deliver,
                     onValueChange = { deliver = it },
                     singleLine = true,
-                    label = { Text("结果投递 (deliver)") },
+                    label = { Text(stringResource(R.string.job_deliver)) },
                     supportingText = {
-                        Text("local 仅存档 / ntfy:主题 推送到 App / telegram 等。详见 Hermes 投递文档")
+                        Text(stringResource(R.string.job_deliver_hint))
                     },
                 )
             }
@@ -510,10 +515,10 @@ private fun JobEditorDialog(
                     if (name.isBlank() || schedule.isBlank() || prompt.isBlank()) return@TextButton
                     onConfirm(name, schedule, prompt, deliver)
                 },
-            ) { Text("保存") }
+            ) { Text(stringResource(R.string.save)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
     )
 }

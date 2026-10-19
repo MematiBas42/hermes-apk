@@ -2,6 +2,8 @@ package com.hermes.client.data.repository
 
 import com.google.gson.JsonElement
 import com.google.gson.JsonPrimitive
+import com.hermes.client.HermesApp
+import com.hermes.client.R
 import com.hermes.client.data.local.MessageEntity
 import com.hermes.client.data.local.RunEntity
 import com.hermes.client.data.local.SessionEntity
@@ -55,7 +57,7 @@ fun JsonElement?.contentToText(): String {
                 val type = obj.get("type")?.asString
                 when (type) {
                     "input_text", "text", "output_text" -> obj.get("text")?.asString.orEmpty()
-                    "image_url", "input_image" -> "[图片]"
+                    "image_url", "input_image" -> HermesApp.string(R.string.image_placeholder).ifBlank { "[Image]" }
                     else -> obj.get("text")?.asString ?: ""
                 }
             }.getOrDefault("")

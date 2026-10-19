@@ -23,10 +23,12 @@ import com.hermes.client.data.prefs.AppSettings
 import com.hermes.client.data.remote.HermesApi
 import com.hermes.client.data.remote.dto.RunCreatedDto
 import com.hermes.client.data.remote.dto.RunRequest
+import com.hermes.client.data.remote.CredentialPolicy
 import com.hermes.client.data.remote.dto.UploadedFileDto
 import com.hermes.client.data.prefs.SettingsRepository
 import com.hermes.client.worker.WorkScheduler
 import dagger.hilt.android.qualifiers.ApplicationContext
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -341,6 +343,7 @@ class ChatRepository @Inject constructor(
         FileSendInstructions.build(
             filesBase = settingsSnapshot.effectiveFilesBaseUrl,
             token = uploadGrant?.token,
+            allowLoopback = settingsSnapshot.allowLoopbackCredentials,
         )?.let { parts += it }
         return parts.joinToString("\n\n").ifBlank { null }
     }
@@ -567,10 +570,15 @@ internal object FileSendInstructions {
     /** The only credential type the agent is ever allowed to see in a prompt. */
     const val CREDENTIAL_MARKER = "Bearer uat_"
 
-    fun build(filesBase: String, token: String?): String? {
+    /**
+     * @param allowLoopback the user's explicit opt-in for plaintext loopback (local tunnel)
+     * credentials; without it only https:// file services get upload instructions.
+     */
+    fun build(filesBase: String, token: String?, allowLoopback: Boolean = false): String? {
         val base = filesBase.trim().trimEnd('/')
         if (base.isBlank() || token.isNullOrBlank()) return null
-        if (!base.startsWith("https://")) return null
+        val url = base.toHttpUrlOrNull() ?: return null
+        if (!CredentialPolicy.allows(url, allowLoopback)) return null
         return "【向用户发送文件/图片】当你需要把生成的图片或文件发给用户时，先写入磁盘，再用 terminal 执行：\n" +
             "curl -s -F 'file=@<文件的绝对路径>' -H 'Authorization: Bearer $token' '$base/upload'\n" +
             "响应 JSON 中的 url 字段就是用户可访问的地址。图片请用 Markdown 图片语法 ![说明](url) 直接展示；" +

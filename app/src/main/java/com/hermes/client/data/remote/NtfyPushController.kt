@@ -127,9 +127,12 @@ class NtfyPushController @Inject constructor(
             .url("$baseUrl/$topic/sse")
             .header("Accept", "text/event-stream")
             .header("Cache-Control", "no-cache")
-        // Credentials only travel over TLS — an http:// ntfy server gets an anonymous subscription.
+        // Credentials only travel over TLS (or opted-in plaintext loopback): any other http://
+        // ntfy server gets an anonymous subscription.
         val url = baseUrl.toHttpUrlOrNull()
-        if (token.isNotBlank() && url?.isHttps == true) {
+        if (token.isNotBlank() && url != null &&
+            CredentialPolicy.allows(url, settings.cachedAllowLoopbackCredentials)
+        ) {
             builder.header("Authorization", "Bearer $token")
         }
 

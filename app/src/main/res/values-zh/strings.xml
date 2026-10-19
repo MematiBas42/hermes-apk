@@ -216,4 +216,7 @@
     <string name="stream_disconnected">事件流断开 (HTTP %s)</string>
     <string name="cannot_read_file">无法读取 %s</string>
     <string name="run_id_missing">服务器未返回 run_id</string>
+    <string name="allow_loopback_credentials">允许通过本地隧道发送凭据</string>
+    <string name="allow_loopback_credentials_desc">仅当服务器地址为 127.0.0.1 / localhost / ::1（SSH 或 FRP 隧道）时，才通过明文 http:// 发送 API key。默认关闭；其它 http:// 主机永远不会收到凭据。</string>
+    <string name="allow_loopback_credentials_warning">⚠️ 任何监听该端口的本机进程都能读到你的 API key（等同于服务器上的远程命令执行）。请确认隧道先于应用连接建立后再开启。</string>
 </resources>

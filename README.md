@@ -116,8 +116,16 @@ API key 即等于持有服务端的远程命令执行能力**（Hermes agent 能
    一次 prompt injection 即可外传 key。现在客户端先调 `POST /v1/uploads/token` 换取短时效、
    仅限 `POST /upload` 的 scoped token（约定前缀 `uat_`），只把它写进 prompt；服务端未部署
    该端点时，文件回传能力自动降级（不回退到主 key）。
-2. **凭据只在 TLS 上发送。** 所有 OkHttp 拦截器仅在最终 URL 为 `https://` 时附加
-   `Authorization` 头；`http://` Base URL 只会产生匿名请求（设置页同时给出明文警告）。
+2. **凭据默认只在 TLS 上发送。** 所有 OkHttp 拦截器（含 ntfy 订阅、Coil 文件鉴权）统一经
+   `CredentialPolicy` 判定：仅在最终 URL 为 `https://` 时附加 `Authorization` 头；`http://`
+   Base URL 只会产生匿名请求（设置页同时给出明文警告）。
+   - **唯一例外（需用户显式开启）：** 设置页「允许通过本地隧道发送凭据」（默认关闭）。开启后，
+     仅当目标主机为环回地址（`127.0.0.1` / `localhost` / `::1`）时才会通过明文 `http://`
+     附加凭据，用于 SSH `-L` / FRP 等本地端口转发场景（隧道的最后一跳在本机）。其它任何
+     `http://` 主机仍然只发匿名请求。
+   - **风险：** 环回端口上任何本机进程都能读到 key（等同服务端 RCE）。若在隧道建立之前有其它进程
+     抢占了该端口，它会拿到主 key，因此请确保隧道先于 App 连接建立，且仅在需要时开启。
+   - 文件服务的鉴权 URL 匹配按「scheme + host + port + 完整路径段」比较，而非字符串前缀。
 3. **密钥静态加密。** API key 与 ntfy push token 经 Android Keystore（AES-256-GCM）加密后
    才写入 DataStore，旧明文条目首启自动迁移；备份规则继续把它们排除出云备份。
 4. **不内置任何默认服务器地址。** 首次启动必须自行填写 Base URL。

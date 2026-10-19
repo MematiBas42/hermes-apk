@@ -89,6 +89,7 @@ fun SettingsRoute(
         themeMode = settings.themeMode,
         dynamicColor = settings.dynamicColor,
         appLanguage = settings.appLanguage,
+        allowLoopbackCredentials = settings.allowLoopbackCredentials,
         systemInstructions = settings.systemInstructions,
         toolProgress = settings.toolProgress,
         assistantName = settings.assistantName,
@@ -101,6 +102,7 @@ fun SettingsRoute(
         onThemeMode = viewModel::setThemeMode,
         onDynamicColor = viewModel::setDynamicColor,
         onAppLanguage = viewModel::setAppLanguage,
+        onAllowLoopbackCredentials = viewModel::setAllowLoopbackCredentials,
         onToolProgress = viewModel::setToolProgress,
         onAssistantName = viewModel::setAssistantName,
         onPickAvatar = { avatarPicker.launch("image/*") },
@@ -123,6 +125,7 @@ fun SettingsScreen(
     themeMode: ThemeMode,
     dynamicColor: Boolean,
     appLanguage: String,
+    allowLoopbackCredentials: Boolean,
     systemInstructions: String,
     toolProgress: Boolean,
     assistantName: String,
@@ -136,6 +139,7 @@ fun SettingsScreen(
     onDynamicColor: (Boolean) -> Unit,
     onAppLanguage: (String) -> Unit,
     onToolProgress: (Boolean) -> Unit,
+    onAllowLoopbackCredentials: (Boolean) -> Unit,
     onAssistantName: (String) -> Unit,
     onPickAvatar: () -> Unit,
     onClearAvatar: () -> Unit,
@@ -253,6 +257,20 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.error,
                 )
                 else -> Unit
+            }
+
+            SettingSwitch(
+                title = stringResource(R.string.allow_loopback_credentials),
+                subtitle = stringResource(R.string.allow_loopback_credentials_desc),
+                checked = allowLoopbackCredentials,
+                onChange = onAllowLoopbackCredentials,
+            )
+            if (allowLoopbackCredentials) {
+                Text(
+                    text = stringResource(R.string.allow_loopback_credentials_warning),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
 
             Spacer(Modifier.height(4.dp))

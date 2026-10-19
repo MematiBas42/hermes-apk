@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Cleartext stays permitted so users can point the Base URL at a self-hosted LAN server over
-  http://. This is *not* a license for credentials in the clear: every interceptor refuses to
-  attach an Authorization header unless the final URL is https, and the run prompt never embeds
-  a plaintext file-service URL. An http:// server therefore only ever sees anonymous requests.
+  http://. This is *not* a license for credentials in the clear: every interceptor (see
+  CredentialPolicy) refuses to attach an Authorization header unless the final URL is https.
+  The single exception is an explicit, default-off user opt-in in Settings ("Allow credentials
+  over local tunnel"), which additionally permits plaintext loopback hosts only (127.0.0.1,
+  localhost, ::1) for SSH/FRP port-forwards. Any other http:// server only ever sees anonymous
+  requests, and the run prompt never embeds a plaintext non-loopback file-service URL.
   The settings screen additionally warns when an http:// URL is configured.
 -->
 <network-security-config>

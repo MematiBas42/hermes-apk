@@ -77,6 +77,10 @@ class SettingsViewModel @Inject constructor(
         androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(localeList)
     }
 
+    fun setAllowLoopbackCredentials(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setAllowLoopbackCredentials(enabled) }
+    }
+
     fun setToolProgress(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setToolProgress(enabled) }
     }

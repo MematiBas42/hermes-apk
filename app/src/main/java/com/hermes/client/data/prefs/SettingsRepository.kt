@@ -49,6 +49,8 @@ data class AppSettings(
     /** Optional `Authorization: Bearer <token>` for the ntfy subscription. */
     val jobsPushToken: String = "",
     val appLanguage: String = "system",
+    /** Opt-in: attach credentials to plaintext loopback URLs (SSH/FRP local tunnels). */
+    val allowLoopbackCredentials: Boolean = false,
 ) {
     val isConfigured: Boolean
         get() = baseUrl.isNotBlank() && apiKey.isNotBlank()
@@ -122,6 +124,11 @@ class SettingsRepository @Inject constructor(
     var cachedJobsPushToken: String = ""
         private set
 
+    /** Opt-in for credentials over plaintext loopback; read by [com.hermes.client.data.remote.CredentialPolicy] callers. */
+    @Volatile
+    var cachedAllowLoopbackCredentials: Boolean = false
+        private set
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val settings: Flow<AppSettings> = dataStore.data
@@ -134,6 +141,7 @@ class SettingsRepository @Inject constructor(
             cachedJobsPushUrl = s.jobsPushUrl
             cachedJobsPushTopic = s.jobsPushTopic
             cachedJobsPushToken = s.jobsPushToken
+            cachedAllowLoopbackCredentials = s.allowLoopbackCredentials
         }
         .distinctUntilChanged()
 
@@ -219,6 +227,11 @@ class SettingsRepository @Inject constructor(
         cachedJobsPushToken = trimmed
     }
 
+    suspend fun setAllowLoopbackCredentials(value: Boolean) {
+        dataStore.edit { it[KEY_ALLOW_LOOPBACK_CREDENTIALS] = value }
+        cachedAllowLoopbackCredentials = value
+    }
+
     suspend fun setAppLanguage(value: String) {
         dataStore.edit { it[KEY_APP_LANGUAGE] = value }
     }
@@ -238,6 +251,7 @@ class SettingsRepository @Inject constructor(
         jobsPushTopic = this[KEY_JOBS_PUSH_TOPIC] ?: "",
         jobsPushToken = secretCipher.decrypt(this[KEY_JOBS_PUSH_TOKEN] ?: ""),
         appLanguage = this[KEY_APP_LANGUAGE] ?: "system",
+        allowLoopbackCredentials = this[KEY_ALLOW_LOOPBACK_CREDENTIALS] ?: false,
     )
 
     private companion object {
@@ -254,5 +268,6 @@ class SettingsRepository @Inject constructor(
         val KEY_JOBS_PUSH_TOPIC = stringPreferencesKey("jobs_push_topic")
         val KEY_JOBS_PUSH_TOKEN = stringPreferencesKey("jobs_push_token")
         val KEY_APP_LANGUAGE = stringPreferencesKey("app_language")
+        val KEY_ALLOW_LOOPBACK_CREDENTIALS = booleanPreferencesKey("allow_loopback_credentials")
     }
 }

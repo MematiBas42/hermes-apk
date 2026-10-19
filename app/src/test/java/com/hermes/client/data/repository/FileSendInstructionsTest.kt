@@ -44,6 +44,22 @@ class FileSendInstructionsTest {
     }
 
     @Test
+    fun loopbackPlaintextOnlyWithExplicitOptIn() {
+        val base = "http://127.0.0.1:8643/hermes-files"
+        assertNull(FileSendInstructions.build(base, token = "uat_abc123"))
+        assertNull(FileSendInstructions.build(base, token = "uat_abc123", allowLoopback = false))
+        val instructions = FileSendInstructions.build(base, token = "uat_abc123", allowLoopback = true)!!
+        assertTrue(instructions.contains("Bearer uat_abc123"))
+    }
+
+    @Test
+    fun optInNeverUnlocksNonLoopbackPlaintext() {
+        assertNull(
+            FileSendInstructions.build("http://files.example.com/hermes-files", token = "uat_abc123", allowLoopback = true),
+        )
+    }
+
+    @Test
     fun outputNeverLooksLikeTheLegacyMasterKeyPattern() {
         // Regression guard for the incident: the old code interpolated the 48-hex master API
         // key here. Scoped tokens are "uat_"-prefixed, so a raw hex credential must never fit.

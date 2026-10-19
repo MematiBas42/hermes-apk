@@ -216,4 +216,7 @@
     <string name="stream_disconnected">Event stream disconnected (HTTP %s)</string>
     <string name="cannot_read_file">Unable to read %s</string>
     <string name="run_id_missing">Server did not return run_id</string>
+    <string name="allow_loopback_credentials">Allow credentials over local tunnel</string>
+    <string name="allow_loopback_credentials_desc">Send the API key over plaintext http:// only when the server address is 127.0.0.1 / localhost / ::1 (SSH or FRP tunnel). Off by default; other http:// hosts never receive credentials.</string>
+    <string name="allow_loopback_credentials_warning">⚠️ Any local process listening on that port can read your API key (equivalent to remote command execution on the server). Enable only if the tunnel is up before the app connects.</string>
 </resources>

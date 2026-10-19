@@ -216,4 +216,7 @@
     <string name="stream_disconnected">Olay akışı kesildi (HTTP %s)</string>
     <string name="cannot_read_file">%s okunamadı</string>
     <string name="run_id_missing">Sunucu run_id döndürmedi</string>
+    <string name="allow_loopback_credentials">Yerel tünel üzerinden kimlik bilgilerine izin ver</string>
+    <string name="allow_loopback_credentials_desc">API anahtarını yalnızca sunucu adresi 127.0.0.1 / localhost / ::1 (SSH veya FRP tüneli) olduğunda düz http:// üzerinden gönderir. Varsayılan olarak kapalıdır; diğer http:// sunucuları asla kimlik bilgisi almaz.</string>
+    <string name="allow_loopback_credentials_warning">⚠️ Bu portu dinleyen herhangi bir yerel işlem API anahtarınızı okuyabilir (sunucuda uzaktan komut çalıştırmaya eşdeğerdir). Yalnızca tünel uygulama bağlanmadan önce açıksa etkinleştirin.</string>
 </resources>
